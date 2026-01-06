@@ -4,14 +4,11 @@ import { Leave } from "@/lib/types";
 
 type Props = {
   leaves: Leave[];
-  onChange: (leaves: Leave[]) => void;
+  onEdit: (leave: Leave) => void;
+  onDelete: (id: string) => void;
 };
 
-export default function LeaveList({ leaves, onChange }: Props) {
-  const remove = (id: string) => {
-    onChange(leaves.filter(l => l.id !== id));
-  };
-
+export default function LeaveList({ leaves, onEdit, onDelete }: Props) {
   return (
     <div className="bg-white p-6 rounded shadow">
       <h2 className="text-lg font-bold mb-4">List of Leaves</h2>
@@ -27,6 +24,7 @@ export default function LeaveList({ leaves, onChange }: Props) {
             <th className="border p-2 text-left">Actions</th>
           </tr>
         </thead>
+
         <tbody>
           {leaves.map(l => (
             <tr key={l.id}>
@@ -35,11 +33,16 @@ export default function LeaveList({ leaves, onChange }: Props) {
               <td className="border p-2">{l.ptoDays}</td>
               <td className="border p-2">{l.startDate}</td>
               <td className="border p-2">{l.endDate}</td>
-              <td className="border p-2 space-x-2">
-                <button className="text-blue-600">Edit</button>
+              <td className="border p-2 space-x-3">
+                <button
+                  className="text-blue-600"
+                  onClick={() => onEdit(l)}
+                >
+                  Edit
+                </button>
                 <button
                   className="text-red-600"
-                  onClick={() => remove(l.id)}
+                  onClick={() => onDelete(l.id)}
                 >
                   Delete
                 </button>
