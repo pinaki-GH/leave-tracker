@@ -7,6 +7,7 @@ export type Leave = {
   ptoDays: number;
   startDate: string;
   endDate: string;
+  status: LeaveStatus;
 };
 
 export type Member = {
