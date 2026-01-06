@@ -10,10 +10,10 @@ export default function Home() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
 
-  const [selectedMonth, setSelectedMonth] = useState<number>(
+  const [selectedMonth, setSelectedMonth] = useState(
     new Date().getMonth()
   );
-  const [selectedYear, setSelectedYear] = useState<number>(
+  const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear()
   );
 
@@ -44,10 +44,10 @@ export default function Home() {
 
   const filteredLeaves = useMemo(() => {
     return leaves.filter(l => {
-      const start = new Date(l.startDate);
+      const d = new Date(l.startDate);
       return (
-        start.getMonth() === selectedMonth &&
-        start.getFullYear() === selectedYear
+        d.getMonth() === selectedMonth &&
+        d.getFullYear() === selectedYear
       );
     });
   }, [leaves, selectedMonth, selectedYear]);
