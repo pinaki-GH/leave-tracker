@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Leave } from "@/lib/types";
+import { Leave, LeaveStatus } from "@/lib/types";
 import { getData } from "@/lib/storage";
 
 type Props = {
@@ -27,6 +27,7 @@ export default function LeaveForm({
     ptoDays: 1,
     startDate: "",
     endDate: "",
+    status: "Planned",
   });
 
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function LeaveForm({
       ptoDays: 1,
       startDate: "",
       endDate: "",
+      status: "Planned",
     });
   };
 
@@ -69,7 +71,8 @@ export default function LeaveForm({
       </div>
 
       <div className="px-6 py-6 bg-gray-50">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-5">
+          {/* Member */}
           <div>
             <label className="block text-sm font-medium mb-1">
               Member Name
@@ -88,6 +91,7 @@ export default function LeaveForm({
             </select>
           </div>
 
+          {/* Leave Type */}
           <div>
             <label className="block text-sm font-medium mb-1">
               Leave Type
@@ -106,6 +110,27 @@ export default function LeaveForm({
             </select>
           </div>
 
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Leave Status
+            </label>
+            <select
+              className="w-full border px-3 py-2 rounded"
+              value={form.status}
+              onChange={e =>
+                setForm({
+                  ...form,
+                  status: e.target.value as LeaveStatus,
+                })
+              }
+            >
+              <option value="Planned">Planned</option>
+              <option value="Confirmed">Confirmed</option>
+            </select>
+          </div>
+
+          {/* PTO */}
           <div>
             <label className="block text-sm font-medium mb-1">
               PTO Days
@@ -120,6 +145,7 @@ export default function LeaveForm({
             />
           </div>
 
+          {/* Start */}
           <div>
             <label className="block text-sm font-medium mb-1">
               Start Date & Time
@@ -136,6 +162,7 @@ export default function LeaveForm({
             />
           </div>
 
+          {/* End */}
           <div>
             <label className="block text-sm font-medium mb-1">
               End Date & Time
