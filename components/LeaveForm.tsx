@@ -62,9 +62,6 @@ export default function LeaveForm({
         <h2 className="text-lg font-semibold">
           {editingLeave ? "Edit Leave" : "Add New Leave"}
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Capture leave details for accurate monthly invoice adjustments
-        </p>
       </div>
 
       {/* Form Body */}
