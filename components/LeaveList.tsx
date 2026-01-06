@@ -80,29 +80,34 @@ export default function LeaveList({
             <tr key={l.id}>
               <td className="border p-2">{l.memberName}</td>
               <td className="border p-2">{l.leaveType}</td>
+
+              {/* ✅ STATUS BADGE */}
               <td className="border p-2">
                 <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${
-                    l.status === "Confirmed"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
+                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                    ${
+                      l.status === "Confirmed"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }
+                  `}
                 >
                   {l.status}
                 </span>
               </td>
+
               <td className="border p-2">{l.ptoDays}</td>
               <td className="border p-2">{l.startDate}</td>
               <td className="border p-2">{l.endDate}</td>
               <td className="border p-2 space-x-2">
                 <button
-                  className="text-blue-600"
+                  className="text-blue-600 hover:underline"
                   onClick={() => onEdit(l)}
                 >
                   Edit
                 </button>
                 <button
-                  className="text-red-600"
+                  className="text-red-600 hover:underline"
                   onClick={() => onDelete(l.id)}
                 >
                   Delete
