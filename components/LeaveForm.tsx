@@ -6,9 +6,17 @@ import { getData } from "@/lib/storage";
 
 type Props = {
   onAdd: (leave: Leave) => void;
+  onUpdate: (leave: Leave) => void;
+  editingLeave: Leave | null;
+  onCancelEdit: () => void;
 };
 
-export default function LeaveForm({ onAdd }: Props) {
+export default function LeaveForm({
+  onAdd,
+  onUpdate,
+  editingLeave,
+  onCancelEdit
+}: Props) {
   const [members, setMembers] = useState<string[]>([]);
   const [types, setTypes] = useState<string[]>([]);
   const [form, setForm] = useState<Omit<Leave, "id">>({
@@ -16,7 +24,7 @@ export default function LeaveForm({ onAdd }: Props) {
     leaveType: "",
     ptoDays: 1,
     startDate: "",
-    endDate: "",
+    endDate: ""
   });
 
   useEffect(() => {
@@ -24,20 +32,34 @@ export default function LeaveForm({ onAdd }: Props) {
     setTypes(getData<any>("leaveTypes").map(t => t.name));
   }, []);
 
-  const save = () => {
-    onAdd({ ...form, id: crypto.randomUUID() });
+  useEffect(() => {
+    if (editingLeave) {
+      const { id, ...rest } = editingLeave;
+      setForm(rest);
+    }
+  }, [editingLeave]);
+
+  const submit = () => {
+    if (editingLeave) {
+      onUpdate({ ...form, id: editingLeave.id });
+    } else {
+      onAdd({ ...form, id: crypto.randomUUID() });
+    }
+
     setForm({
       memberName: "",
       leaveType: "",
       ptoDays: 1,
       startDate: "",
-      endDate: "",
+      endDate: ""
     });
   };
 
   return (
     <div className="bg-white p-6 rounded shadow mb-6">
-      <h2 className="text-lg font-bold mb-4">Add New Leave</h2>
+      <h2 className="text-lg font-bold mb-4">
+        {editingLeave ? "Edit Leave" : "Add New Leave"}
+      </h2>
 
       <div className="grid grid-cols-6 gap-4 items-end">
         <div>
@@ -98,12 +120,23 @@ export default function LeaveForm({ onAdd }: Props) {
           />
         </div>
 
-        <button
-          onClick={save}
-          className="bg-blue-600 text-white px-6 py-2 rounded"
-        >
-          Save
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={submit}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            {editingLeave ? "Update" : "Save"}
+          </button>
+
+          {editingLeave && (
+            <button
+              onClick={onCancelEdit}
+              className="border px-4 py-2 rounded"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
