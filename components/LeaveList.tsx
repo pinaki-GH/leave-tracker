@@ -1,7 +1,6 @@
 "use client";
 
 import { Leave } from "@/lib/types";
-import { getData } from "@/lib/storage";
 
 type Props = {
   leaves: Leave[];
@@ -29,10 +28,6 @@ export default function LeaveList({
   onMonthChange,
   onYearChange,
 }: Props) {
-  const members = Array.from(
-    new Set(allLeaves.map(l => l.memberName))
-  );
-
   const years = Array.from(
     new Set(
       allLeaves.map(l => new Date(l.startDate).getFullYear())
@@ -70,12 +65,13 @@ export default function LeaveList({
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-gray-100">
-            <th className="border p-2 text-left">Member Name</th>
-            <th className="border p-2 text-left">Leave Type</th>
-            <th className="border p-2 text-left">PTO Days</th>
-            <th className="border p-2 text-left">Start Date & Time</th>
-            <th className="border p-2 text-left">End Date & Time</th>
-            <th className="border p-2 text-left">Actions</th>
+            <th className="border p-2">Member</th>
+            <th className="border p-2">Leave Type</th>
+            <th className="border p-2">Status</th>
+            <th className="border p-2">PTO Days</th>
+            <th className="border p-2">Start</th>
+            <th className="border p-2">End</th>
+            <th className="border p-2">Actions</th>
           </tr>
         </thead>
 
@@ -84,6 +80,17 @@ export default function LeaveList({
             <tr key={l.id}>
               <td className="border p-2">{l.memberName}</td>
               <td className="border p-2">{l.leaveType}</td>
+              <td className="border p-2">
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    l.status === "Confirmed"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-yellow-100 text-yellow-700"
+                  }`}
+                >
+                  {l.status}
+                </span>
+              </td>
               <td className="border p-2">{l.ptoDays}</td>
               <td className="border p-2">{l.startDate}</td>
               <td className="border p-2">{l.endDate}</td>
@@ -106,8 +113,11 @@ export default function LeaveList({
 
           {leaves.length === 0 && (
             <tr>
-              <td colSpan={6} className="text-center p-4 text-gray-500">
-                No leaves found for selected month
+              <td
+                colSpan={7}
+                className="text-center p-4 text-gray-500"
+              >
+                No leaves found
               </td>
             </tr>
           )}
