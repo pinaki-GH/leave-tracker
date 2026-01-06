@@ -1,3 +1,5 @@
+export type LeaveStatus = "Planned" | "Confirmed";
+
 export type Leave = {
   id: string;
   memberName: string;
@@ -16,5 +18,3 @@ export type LeaveType = {
   id: string;
   name: string;
 };
-
-export type LeaveStatus = "Planned" | "Confirmed";
