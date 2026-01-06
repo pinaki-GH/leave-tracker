@@ -12,6 +12,8 @@
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/react": "^18.x",
     "tailwindcss": "^3.4.0",
     "postcss": "^8",
     "autoprefixer": "^10",
