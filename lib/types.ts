@@ -16,3 +16,5 @@ export type LeaveType = {
   id: string;
   name: string;
 };
+
+export type LeaveStatus = "Planned" | "Confirmed";
