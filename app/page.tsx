@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import LeaveForm from "@/components/LeaveForm";
 import LeaveList from "@/components/LeaveList";
 import { Leave } from "@/lib/types";
@@ -9,6 +9,13 @@ import { getData, saveData } from "@/lib/storage";
 export default function Home() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
+
+  const [selectedMonth, setSelectedMonth] = useState<number>(
+    new Date().getMonth()
+  );
+  const [selectedYear, setSelectedYear] = useState<number>(
+    new Date().getFullYear()
+  );
 
   useEffect(() => {
     setLeaves(getData("leaves"));
@@ -35,6 +42,16 @@ export default function Home() {
     saveData("leaves", updated);
   };
 
+  const filteredLeaves = useMemo(() => {
+    return leaves.filter(l => {
+      const start = new Date(l.startDate);
+      return (
+        start.getMonth() === selectedMonth &&
+        start.getFullYear() === selectedYear
+      );
+    });
+  }, [leaves, selectedMonth, selectedYear]);
+
   return (
     <>
       <LeaveForm
@@ -42,12 +59,18 @@ export default function Home() {
         onUpdate={updateLeave}
         editingLeave={editingLeave}
         onCancelEdit={() => setEditingLeave(null)}
+        selectedYear={selectedYear}
       />
 
       <LeaveList
-        leaves={leaves}
+        leaves={filteredLeaves}
+        allLeaves={leaves}
         onEdit={setEditingLeave}
         onDelete={deleteLeave}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        onMonthChange={setSelectedMonth}
+        onYearChange={setSelectedYear}
       />
     </>
   );
