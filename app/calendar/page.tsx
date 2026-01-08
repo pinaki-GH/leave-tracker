@@ -19,6 +19,7 @@ export default function CalendarPage() {
     setLeaves(getData("leaves"));
   }, []);
 
+  // Build calendar grid
   const calendarDays = useMemo(() => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
@@ -33,15 +34,32 @@ export default function CalendarPage() {
     return days;
   }, [month, year]);
 
+  // 🔧 FIX: Expand leaves across full date range
   const leavesByDate = useMemo(() => {
-    const map: Record<string, Leave[]> = {};
+    const map: Record<number, Leave[]> = {};
 
     leaves.forEach(l => {
-      const d = new Date(l.startDate);
-      if (d.getMonth() === month && d.getFullYear() === year) {
-        const key = d.getDate();
-        map[key] = map[key] || [];
-        map[key].push(l);
+      const start = new Date(l.startDate);
+      const end = new Date(l.endDate);
+
+      // Normalize to midnight to avoid time drift
+      const current = new Date(
+        start.getFullYear(),
+        start.getMonth(),
+        start.getDate()
+      );
+
+      while (current <= end) {
+        if (
+          current.getMonth() === month &&
+          current.getFullYear() === year
+        ) {
+          const day = current.getDate();
+          map[day] = map[day] || [];
+          map[day].push(l);
+        }
+
+        current.setDate(current.getDate() + 1);
       }
     });
 
@@ -79,7 +97,7 @@ export default function CalendarPage() {
         </select>
       </div>
 
-      {/* Calendar */}
+      {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-2">
         {daysOfWeek.map(d => (
           <div key={d} className="font-semibold text-center">
@@ -90,7 +108,7 @@ export default function CalendarPage() {
         {calendarDays.map((day, idx) => (
           <div
             key={idx}
-            className="border rounded min-h-[100px] p-1 text-sm"
+            className="border rounded min-h-[110px] p-1 text-sm"
           >
             {day && (
               <>
@@ -98,14 +116,16 @@ export default function CalendarPage() {
 
                 {(leavesByDate[day] || []).map(l => (
                   <div
-                    key={l.id}
+                    key={`${l.id}-${day}`}
                     className={`mb-1 px-2 py-1 rounded text-xs ${
                       l.status === "Confirmed"
                         ? "bg-green-100 text-green-700"
                         : "bg-yellow-100 text-yellow-700"
                     }`}
                   >
-                    <div className="font-medium">{l.memberName}</div>
+                    <div className="font-medium">
+                      {l.memberName}
+                    </div>
                     <div>{l.leaveType}</div>
                   </div>
                 ))}
