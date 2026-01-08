@@ -59,7 +59,6 @@ export default function Home() {
         onUpdate={updateLeave}
         editingLeave={editingLeave}
         onCancelEdit={() => setEditingLeave(null)}
-        selectedYear={selectedYear}
       />
 
       <LeaveList
