@@ -7,10 +7,18 @@ type Props = {
   allLeaves: Leave[];
   onEdit: (leave: Leave) => void;
   onDelete: (id: string) => void;
+
   selectedMonth: number;
   selectedYear: number;
   onMonthChange: (m: number) => void;
   onYearChange: (y: number) => void;
+
+  selectedMember: string;
+  selectedLeaveType: string;
+  selectedStatus: string;
+  onMemberChange: (v: string) => void;
+  onLeaveTypeChange: (v: string) => void;
+  onStatusChange: (v: string) => void;
 };
 
 const months = [
@@ -27,11 +35,23 @@ export default function LeaveList({
   selectedYear,
   onMonthChange,
   onYearChange,
+  selectedMember,
+  selectedLeaveType,
+  selectedStatus,
+  onMemberChange,
+  onLeaveTypeChange,
+  onStatusChange,
 }: Props) {
+  const members = Array.from(
+    new Set(allLeaves.map(l => l.memberName))
+  );
+
+  const leaveTypes = Array.from(
+    new Set(allLeaves.map(l => l.leaveType))
+  );
+
   const years = Array.from(
-    new Set(
-      allLeaves.map(l => new Date(l.startDate).getFullYear())
-    )
+    new Set(allLeaves.map(l => new Date(l.startDate).getFullYear()))
   ).sort();
 
   return (
@@ -39,9 +59,9 @@ export default function LeaveList({
       <h2 className="text-lg font-bold mb-4">List of Leaves</h2>
 
       {/* Filters */}
-      <div className="flex gap-4 mb-4">
+      <div className="flex flex-wrap gap-4 mb-5">
         <select
-          className="border px-3 py-2 rounded"
+          className="border px-3 py-2 rounded text-sm"
           value={selectedMonth}
           onChange={e => onMonthChange(+e.target.value)}
         >
@@ -51,13 +71,45 @@ export default function LeaveList({
         </select>
 
         <select
-          className="border px-3 py-2 rounded"
+          className="border px-3 py-2 rounded text-sm"
           value={selectedYear}
           onChange={e => onYearChange(+e.target.value)}
         >
           {years.map(y => (
             <option key={y}>{y}</option>
           ))}
+        </select>
+
+        <select
+          className="border px-3 py-2 rounded text-sm"
+          value={selectedMember}
+          onChange={e => onMemberChange(e.target.value)}
+        >
+          <option value="All">All Members</option>
+          {members.map(m => (
+            <option key={m}>{m}</option>
+          ))}
+        </select>
+
+        <select
+          className="border px-3 py-2 rounded text-sm"
+          value={selectedLeaveType}
+          onChange={e => onLeaveTypeChange(e.target.value)}
+        >
+          <option value="All">All Leave Types</option>
+          {leaveTypes.map(t => (
+            <option key={t}>{t}</option>
+          ))}
+        </select>
+
+        <select
+          className="border px-3 py-2 rounded text-sm"
+          value={selectedStatus}
+          onChange={e => onStatusChange(e.target.value)}
+        >
+          <option value="All">All Status</option>
+          <option value="Planned">Planned</option>
+          <option value="Confirmed">Confirmed</option>
         </select>
       </div>
 
@@ -78,47 +130,22 @@ export default function LeaveList({
         <tbody>
           {leaves.map(l => (
             <tr key={l.id}>
-              {/* Member */}
-              <td className="border p-2 text-left">
-                {l.memberName}
-              </td>
-
-              {/* Leave Type */}
-              <td className="border p-2 text-center">
-                {l.leaveType}
-              </td>
-
-              {/* Status */}
+              <td className="border p-2 text-left">{l.memberName}</td>
+              <td className="border p-2 text-center">{l.leaveType}</td>
               <td className="border p-2 text-center">
                 <span
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
-                    ${
-                      l.status === "Confirmed"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }
-                  `}
+                  className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
+                    l.status === "Confirmed"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-yellow-100 text-yellow-700"
+                  }`}
                 >
                   {l.status}
                 </span>
               </td>
-
-              {/* PTO */}
-              <td className="border p-2 text-center">
-                {l.ptoDays}
-              </td>
-
-              {/* Start */}
-              <td className="border p-2 text-center">
-                {l.startDate}
-              </td>
-
-              {/* End */}
-              <td className="border p-2 text-center">
-                {l.endDate}
-              </td>
-
-              {/* Actions */}
+              <td className="border p-2 text-center">{l.ptoDays}</td>
+              <td className="border p-2 text-center">{l.startDate}</td>
+              <td className="border p-2 text-center">{l.endDate}</td>
               <td className="border p-2 text-center space-x-2">
                 <button
                   className="text-blue-600 hover:underline"
@@ -138,11 +165,8 @@ export default function LeaveList({
 
           {leaves.length === 0 && (
             <tr>
-              <td
-                colSpan={7}
-                className="text-center p-4 text-gray-500"
-              >
-                No leaves found
+              <td colSpan={7} className="text-center p-4 text-gray-500">
+                No leaves match the selected filters
               </td>
             </tr>
           )}
