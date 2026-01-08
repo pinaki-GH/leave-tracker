@@ -10,15 +10,14 @@ export default function Home() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
 
-  // Time filters
-  const [selectedMonth, setSelectedMonth] = useState(
-    new Date().getMonth()
-  );
-  const [selectedYear, setSelectedYear] = useState(
-    new Date().getFullYear()
-  );
+  // Default current month/year
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
 
-  // New filters
+  // Filters
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMember, setSelectedMember] = useState<string>("All");
   const [selectedLeaveType, setSelectedLeaveType] = useState<string>("All");
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
@@ -48,20 +47,26 @@ export default function Home() {
     saveData("leaves", updated);
   };
 
-  // 🔍 Combined filtering logic
+  // 🔄 Clear all filters
+  const clearFilters = () => {
+    setSelectedMember("All");
+    setSelectedLeaveType("All");
+    setSelectedStatus("All");
+    setSelectedMonth(currentMonth);
+    setSelectedYear(currentYear);
+  };
+
+  // 🔍 Filtered leaves
   const filteredLeaves = useMemo(() => {
     return leaves.filter(l => {
       const d = new Date(l.startDate);
 
       if (d.getMonth() !== selectedMonth) return false;
       if (d.getFullYear() !== selectedYear) return false;
-
       if (selectedMember !== "All" && l.memberName !== selectedMember)
         return false;
-
       if (selectedLeaveType !== "All" && l.leaveType !== selectedLeaveType)
         return false;
-
       if (selectedStatus !== "All" && l.status !== selectedStatus)
         return false;
 
@@ -100,6 +105,7 @@ export default function Home() {
         onMemberChange={setSelectedMember}
         onLeaveTypeChange={setSelectedLeaveType}
         onStatusChange={setSelectedStatus}
+        onClearFilters={clearFilters}
       />
     </>
   );
