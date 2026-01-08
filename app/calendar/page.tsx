@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import LeaveForm from "@/components/LeaveForm";
 import { Leave } from "@/lib/types";
-import { getData } from "@/lib/storage";
+import { getData, saveData } from "@/lib/storage";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const months = [
@@ -12,6 +13,8 @@ const months = [
 
 export default function CalendarPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
+
   const [month, setMonth] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
 
@@ -19,7 +22,25 @@ export default function CalendarPage() {
     setLeaves(getData("leaves"));
   }, []);
 
-  // Build calendar grid
+  /* ---------- CRUD ---------- */
+
+  const addLeave = (leave: Leave) => {
+    const updated = [...leaves, leave];
+    setLeaves(updated);
+    saveData("leaves", updated);
+  };
+
+  const updateLeave = (updatedLeave: Leave) => {
+    const updated = leaves.map(l =>
+      l.id === updatedLeave.id ? updatedLeave : l
+    );
+    setLeaves(updated);
+    saveData("leaves", updated);
+    setEditingLeave(null);
+  };
+
+  /* ---------- Calendar Grid ---------- */
+
   const calendarDays = useMemo(() => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
@@ -34,7 +55,6 @@ export default function CalendarPage() {
     return days;
   }, [month, year]);
 
-  // 🔧 FIX: Expand leaves across full date range
   const leavesByDate = useMemo(() => {
     const map: Record<number, Leave[]> = {};
 
@@ -42,7 +62,6 @@ export default function CalendarPage() {
       const start = new Date(l.startDate);
       const end = new Date(l.endDate);
 
-      // Normalize to midnight to avoid time drift
       const current = new Date(
         start.getFullYear(),
         start.getMonth(),
@@ -58,7 +77,6 @@ export default function CalendarPage() {
           map[day] = map[day] || [];
           map[day].push(l);
         }
-
         current.setDate(current.getDate() + 1);
       }
     });
@@ -70,70 +88,89 @@ export default function CalendarPage() {
     new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
   ).sort();
 
+  /* ---------- UI ---------- */
+
   return (
-    <div className="bg-white p-6 rounded shadow">
-      <h2 className="text-lg font-bold mb-4">Calendar View</h2>
+    <>
+      {/* ADD / EDIT LEAVE */}
+      <LeaveForm
+        onAdd={addLeave}
+        onUpdate={updateLeave}
+        editingLeave={editingLeave}
+        onCancelEdit={() => setEditingLeave(null)}
+      />
 
-      {/* Controls */}
-      <div className="flex gap-4 mb-6">
-        <select
-          className="border px-3 py-2 rounded text-sm"
-          value={month}
-          onChange={e => setMonth(+e.target.value)}
-        >
-          {months.map((m, i) => (
-            <option key={m} value={i}>{m}</option>
-          ))}
-        </select>
+      <div className="bg-white p-6 rounded shadow">
+        <h2 className="text-lg font-bold mb-4">Calendar View</h2>
 
-        <select
-          className="border px-3 py-2 rounded text-sm"
-          value={year}
-          onChange={e => setYear(+e.target.value)}
-        >
-          {years.map(y => (
-            <option key={y}>{y}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-2">
-        {daysOfWeek.map(d => (
-          <div key={d} className="font-semibold text-center">
-            {d}
-          </div>
-        ))}
-
-        {calendarDays.map((day, idx) => (
-          <div
-            key={idx}
-            className="border rounded min-h-[110px] p-1 text-sm"
+        {/* Controls */}
+        <div className="flex gap-4 mb-6">
+          <select
+            className="border px-3 py-2 rounded text-sm"
+            value={month}
+            onChange={e => setMonth(+e.target.value)}
           >
-            {day && (
-              <>
-                <div className="font-semibold mb-1">{day}</div>
+            {months.map((m, i) => (
+              <option key={m} value={i}>{m}</option>
+            ))}
+          </select>
 
-                {(leavesByDate[day] || []).map(l => (
-                  <div
-                    key={`${l.id}-${day}`}
-                    className={`mb-1 px-2 py-1 rounded text-xs ${
-                      l.status === "Confirmed"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    <div className="font-medium">
-                      {l.memberName}
+          <select
+            className="border px-3 py-2 rounded text-sm"
+            value={year}
+            onChange={e => setYear(+e.target.value)}
+          >
+            {years.map(y => (
+              <option key={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Calendar Grid */}
+        <div className="grid grid-cols-7 gap-2">
+          {daysOfWeek.map(d => (
+            <div key={d} className="font-semibold text-center">
+              {d}
+            </div>
+          ))}
+
+          {calendarDays.map((day, idx) => (
+            <div
+              key={idx}
+              className="border rounded min-h-[120px] p-1 text-sm"
+            >
+              {day && (
+                <>
+                  <div className="font-semibold mb-1">{day}</div>
+
+                  {(leavesByDate[day] || []).map(l => (
+                    <div
+                      key={`${l.id}-${day}`}
+                      className={`mb-1 px-2 py-1 rounded text-xs ${
+                        l.status === "Confirmed"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      <div className="font-medium">
+                        {l.memberName}
+                      </div>
+                      <div>{l.leaveType}</div>
+
+                      <button
+                        className="text-blue-600 underline mt-1"
+                        onClick={() => setEditingLeave(l)}
+                      >
+                        Edit
+                      </button>
                     </div>
-                    <div>{l.leaveType}</div>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        ))}
+                  ))}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
