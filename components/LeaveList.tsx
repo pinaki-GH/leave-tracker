@@ -19,6 +19,8 @@ type Props = {
   onMemberChange: (v: string) => void;
   onLeaveTypeChange: (v: string) => void;
   onStatusChange: (v: string) => void;
+
+  onClearFilters: () => void;
 };
 
 const months = [
@@ -41,6 +43,7 @@ export default function LeaveList({
   onMemberChange,
   onLeaveTypeChange,
   onStatusChange,
+  onClearFilters,
 }: Props) {
   const members = Array.from(
     new Set(allLeaves.map(l => l.memberName))
@@ -59,7 +62,7 @@ export default function LeaveList({
       <h2 className="text-lg font-bold mb-4">List of Leaves</h2>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-5">
+      <div className="flex flex-wrap items-center gap-4 mb-5">
         <select
           className="border px-3 py-2 rounded text-sm"
           value={selectedMonth}
@@ -111,6 +114,16 @@ export default function LeaveList({
           <option value="Planned">Planned</option>
           <option value="Confirmed">Confirmed</option>
         </select>
+
+        {/* Push button to the right */}
+        <div className="flex-1" />
+
+        <button
+          onClick={onClearFilters}
+          className="border px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-100"
+        >
+          Clear Filters
+        </button>
       </div>
 
       {/* Table */}
