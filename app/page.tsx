@@ -10,12 +10,18 @@ export default function Home() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
 
+  // Time filters
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().getMonth()
   );
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear()
   );
+
+  // New filters
+  const [selectedMember, setSelectedMember] = useState<string>("All");
+  const [selectedLeaveType, setSelectedLeaveType] = useState<string>("All");
+  const [selectedStatus, setSelectedStatus] = useState<string>("All");
 
   useEffect(() => {
     setLeaves(getData("leaves"));
@@ -42,15 +48,33 @@ export default function Home() {
     saveData("leaves", updated);
   };
 
+  // 🔍 Combined filtering logic
   const filteredLeaves = useMemo(() => {
     return leaves.filter(l => {
       const d = new Date(l.startDate);
-      return (
-        d.getMonth() === selectedMonth &&
-        d.getFullYear() === selectedYear
-      );
+
+      if (d.getMonth() !== selectedMonth) return false;
+      if (d.getFullYear() !== selectedYear) return false;
+
+      if (selectedMember !== "All" && l.memberName !== selectedMember)
+        return false;
+
+      if (selectedLeaveType !== "All" && l.leaveType !== selectedLeaveType)
+        return false;
+
+      if (selectedStatus !== "All" && l.status !== selectedStatus)
+        return false;
+
+      return true;
     });
-  }, [leaves, selectedMonth, selectedYear]);
+  }, [
+    leaves,
+    selectedMonth,
+    selectedYear,
+    selectedMember,
+    selectedLeaveType,
+    selectedStatus,
+  ]);
 
   return (
     <>
@@ -70,6 +94,12 @@ export default function Home() {
         selectedYear={selectedYear}
         onMonthChange={setSelectedMonth}
         onYearChange={setSelectedYear}
+        selectedMember={selectedMember}
+        selectedLeaveType={selectedLeaveType}
+        selectedStatus={selectedStatus}
+        onMemberChange={setSelectedMember}
+        onLeaveTypeChange={setSelectedLeaveType}
+        onStatusChange={setSelectedStatus}
       />
     </>
   );
