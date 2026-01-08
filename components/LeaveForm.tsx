@@ -9,7 +9,6 @@ type Props = {
   onUpdate: (leave: Leave) => void;
   editingLeave: Leave | null;
   onCancelEdit: () => void;
-  selectedYear: number;
 };
 
 export default function LeaveForm({
@@ -17,7 +16,6 @@ export default function LeaveForm({
   onUpdate,
   editingLeave,
   onCancelEdit,
-  selectedYear,
 }: Props) {
   const [members, setMembers] = useState<string[]>([]);
   const [types, setTypes] = useState<string[]>([]);
@@ -41,9 +39,6 @@ export default function LeaveForm({
       setForm(rest);
     }
   }, [editingLeave]);
-
-  const minDate = `${selectedYear}-01-01T00:00`;
-  const maxDate = `${selectedYear}-12-31T23:59`;
 
   const submit = () => {
     if (editingLeave) {
@@ -78,7 +73,7 @@ export default function LeaveForm({
               Member Name
             </label>
             <select
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded text-sm"
               value={form.memberName}
               onChange={e =>
                 setForm({ ...form, memberName: e.target.value })
@@ -97,7 +92,7 @@ export default function LeaveForm({
               Leave Type
             </label>
             <select
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded text-sm"
               value={form.leaveType}
               onChange={e =>
                 setForm({ ...form, leaveType: e.target.value })
@@ -116,7 +111,7 @@ export default function LeaveForm({
               Leave Status
             </label>
             <select
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded text-sm"
               value={form.status}
               onChange={e =>
                 setForm({
@@ -137,7 +132,7 @@ export default function LeaveForm({
             </label>
             <input
               type="number"
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded text-sm"
               value={form.ptoDays}
               onChange={e =>
                 setForm({ ...form, ptoDays: +e.target.value })
@@ -152,9 +147,7 @@ export default function LeaveForm({
             </label>
             <input
               type="datetime-local"
-              min={minDate}
-              max={maxDate}
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded text-sm"
               value={form.startDate}
               onChange={e =>
                 setForm({ ...form, startDate: e.target.value })
@@ -169,9 +162,7 @@ export default function LeaveForm({
             </label>
             <input
               type="datetime-local"
-              min={minDate}
-              max={maxDate}
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded text-sm"
               value={form.endDate}
               onChange={e =>
                 setForm({ ...form, endDate: e.target.value })
@@ -185,14 +176,14 @@ export default function LeaveForm({
         {editingLeave && (
           <button
             onClick={onCancelEdit}
-            className="border px-4 py-2 rounded"
+            className="border px-4 py-2 rounded text-sm"
           >
             Cancel
           </button>
         )}
         <button
           onClick={submit}
-          className="bg-blue-600 text-white px-6 py-2 rounded"
+          className="bg-blue-600 text-white px-6 py-2 rounded text-sm"
         >
           {editingLeave ? "Update Leave" : "Save Leave"}
         </button>
