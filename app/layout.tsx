@@ -17,9 +17,15 @@ export default function RootLayout({
             <nav className="flex gap-2">
               <a
                 href="/"
-                className="px-4 py-2 rounded-t bg-blue-600 text-white font-medium"
+                className="px-4 py-2 rounded-t bg-gray-200 font-medium"
               >
-                Leaves
+                List View
+              </a>
+              <a
+                href="/calendar"
+                className="px-4 py-2 rounded-t bg-gray-200 font-medium"
+              >
+                Calendar View
               </a>
               <a
                 href="/members"
