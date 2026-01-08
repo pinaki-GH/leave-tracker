@@ -65,24 +65,31 @@ export default function LeaveList({
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-gray-100">
-            <th className="border p-2">Member</th>
-            <th className="border p-2">Leave Type</th>
-            <th className="border p-2">Status</th>
-            <th className="border p-2">PTO Days</th>
-            <th className="border p-2">Start</th>
-            <th className="border p-2">End</th>
-            <th className="border p-2">Actions</th>
+            <th className="border p-2 text-left">Member</th>
+            <th className="border p-2 text-center">Leave Type</th>
+            <th className="border p-2 text-center">Status</th>
+            <th className="border p-2 text-center">PTO Days</th>
+            <th className="border p-2 text-center">Start</th>
+            <th className="border p-2 text-center">End</th>
+            <th className="border p-2 text-center">Actions</th>
           </tr>
         </thead>
 
         <tbody>
           {leaves.map(l => (
             <tr key={l.id}>
-              <td className="border p-2">{l.memberName}</td>
-              <td className="border p-2">{l.leaveType}</td>
+              {/* Member */}
+              <td className="border p-2 text-left">
+                {l.memberName}
+              </td>
 
-              {/* ✅ STATUS BADGE */}
-              <td className="border p-2">
+              {/* Leave Type */}
+              <td className="border p-2 text-center">
+                {l.leaveType}
+              </td>
+
+              {/* Status */}
+              <td className="border p-2 text-center">
                 <span
                   className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
                     ${
@@ -96,10 +103,23 @@ export default function LeaveList({
                 </span>
               </td>
 
-              <td className="border p-2">{l.ptoDays}</td>
-              <td className="border p-2">{l.startDate}</td>
-              <td className="border p-2">{l.endDate}</td>
-              <td className="border p-2 space-x-2">
+              {/* PTO */}
+              <td className="border p-2 text-center">
+                {l.ptoDays}
+              </td>
+
+              {/* Start */}
+              <td className="border p-2 text-center">
+                {l.startDate}
+              </td>
+
+              {/* End */}
+              <td className="border p-2 text-center">
+                {l.endDate}
+              </td>
+
+              {/* Actions */}
+              <td className="border p-2 text-center space-x-2">
                 <button
                   className="text-blue-600 hover:underline"
                   onClick={() => onEdit(l)}
