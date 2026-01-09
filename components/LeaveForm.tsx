@@ -22,10 +22,10 @@ export default function LeaveForm({
   const [form, setForm] = useState<Omit<Leave, "id">>({
     memberName: "",
     leaveType: "",
+    status: "Planned",
     ptoDays: 1,
     startDate: "",
     endDate: "",
-    status: "Planned",
   });
 
   useEffect(() => {
@@ -41,6 +41,10 @@ export default function LeaveForm({
   }, [editingLeave]);
 
   const submit = () => {
+    if (!form.memberName || !form.leaveType || !form.startDate || !form.endDate) {
+      return;
+    }
+
     if (editingLeave) {
       onUpdate({ ...form, id: editingLeave.id });
     } else {
@@ -50,10 +54,10 @@ export default function LeaveForm({
     setForm({
       memberName: "",
       leaveType: "",
+      status: "Planned",
       ptoDays: 1,
       startDate: "",
       endDate: "",
-      status: "Planned",
     });
   };
 
@@ -125,7 +129,7 @@ export default function LeaveForm({
             </select>
           </div>
 
-          {/* PTO */}
+          {/* PTO Days */}
           <div>
             <label className="block text-sm font-medium mb-1">
               PTO Days
@@ -134,19 +138,20 @@ export default function LeaveForm({
               type="number"
               className="w-full border px-3 py-2 rounded text-sm"
               value={form.ptoDays}
+              min={1}
               onChange={e =>
                 setForm({ ...form, ptoDays: +e.target.value })
               }
             />
           </div>
 
-          {/* Start */}
+          {/* Start Date */}
           <div>
             <label className="block text-sm font-medium mb-1">
-              Start Date & Time
+              Start Date
             </label>
             <input
-              type="datetime-local"
+              type="date"
               className="w-full border px-3 py-2 rounded text-sm"
               value={form.startDate}
               onChange={e =>
@@ -155,13 +160,13 @@ export default function LeaveForm({
             />
           </div>
 
-          {/* End */}
+          {/* End Date */}
           <div>
             <label className="block text-sm font-medium mb-1">
-              End Date & Time
+              End Date
             </label>
             <input
-              type="datetime-local"
+              type="date"
               className="w-full border px-3 py-2 rounded text-sm"
               value={form.endDate}
               onChange={e =>
