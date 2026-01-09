@@ -1,10 +1,22 @@
+"use client";
+
 import "./globals.css";
+import { usePathname } from "next/navigation";
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
+  const tabs = [
+    { label: "List View", href: "/" },
+    { label: "Calendar View", href: "/calendar" },
+    { label: "Summary View", href: "/summary" },
+    { label: "Members & Leave Types", href: "/members" },
+  ];
+
   return (
     <html lang="en">
       <body className="bg-gray-100">
@@ -14,31 +26,28 @@ export default function RootLayout({
               Team Leave Tracker
             </h1>
 
-            <nav className="flex gap-2">
-              <a
-                href="/"
-                className="px-4 py-2 rounded-t bg-gray-200 font-medium"
-              >
-                List View
-              </a>
-              <a
-                href="/calendar"
-                className="px-4 py-2 rounded-t bg-gray-200 font-medium"
-              >
-                Calendar View
-              </a>
-              <a
-                href="/summary"
-                className="px-4 py-2 rounded-t bg-gray-200 font-medium"
-              >
-                Summary View
-              </a>
-              <a
-                href="/members"
-                className="px-4 py-2 rounded-t bg-gray-200 font-medium"
-              >
-                Members & Leave Types
-              </a>
+            <nav className="flex gap-1 border-b">
+              {tabs.map(tab => {
+                const isActive =
+                  pathname === tab.href ||
+                  (tab.href !== "/" && pathname.startsWith(tab.href));
+
+                return (
+                  <a
+                    key={tab.href}
+                    href={tab.href}
+                    className={`px-4 py-2 font-medium rounded-t transition-colors
+                      ${
+                        isActive
+                          ? "bg-white border border-b-0 border-gray-300 text-blue-600"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }
+                    `}
+                  >
+                    {tab.label}
+                  </a>
+                );
+              })}
             </nav>
           </div>
         </header>
