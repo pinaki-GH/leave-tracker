@@ -28,6 +28,12 @@ export default function RootLayout({
                 Calendar View
               </a>
               <a
+                href="/summary"
+                className="px-4 py-2 rounded-t bg-gray-200 font-medium"
+              >
+                Summary View
+              </a>
+              <a
                 href="/members"
                 className="px-4 py-2 rounded-t bg-gray-200 font-medium"
               >
