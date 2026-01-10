@@ -15,8 +15,12 @@ export default function CalendarPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
 
-  const [month, setMonth] = useState(new Date().getMonth());
-  const [year, setYear] = useState(new Date().getFullYear());
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  const [month, setMonth] = useState(currentMonth);
+  const [year, setYear] = useState(currentYear);
 
   useEffect(() => {
     setLeaves(getData("leaves"));
@@ -37,6 +41,13 @@ export default function CalendarPage() {
     setLeaves(updated);
     saveData("leaves", updated);
     setEditingLeave(null);
+  };
+
+  /* ---------- Clear Filters ---------- */
+
+  const clearFilters = () => {
+    setMonth(currentMonth);
+    setYear(currentYear);
   };
 
   /* ---------- Calendar Grid ---------- */
@@ -103,8 +114,8 @@ export default function CalendarPage() {
       <div className="bg-white p-6 rounded shadow">
         <h2 className="text-lg font-bold mb-4">Calendar View</h2>
 
-        {/* Controls */}
-        <div className="flex gap-4 mb-6">
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-4 mb-6">
           <select
             className="border px-3 py-2 rounded text-sm"
             value={month}
@@ -124,6 +135,16 @@ export default function CalendarPage() {
               <option key={y}>{y}</option>
             ))}
           </select>
+
+          {/* Push button to the right */}
+          <div className="flex-1" />
+
+          <button
+            onClick={clearFilters}
+            className="border px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-100"
+          >
+            Clear Filters
+          </button>
         </div>
 
         {/* Calendar Grid */}
