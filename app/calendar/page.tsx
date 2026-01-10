@@ -21,6 +21,9 @@ export default function CalendarPage() {
 
   const [month, setMonth] = useState(currentMonth);
   const [year, setYear] = useState(currentYear);
+  const [selectedMember, setSelectedMember] = useState("All");
+  const [selectedLeaveType, setSelectedLeaveType] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("All");
 
   useEffect(() => {
     setLeaves(getData("leaves"));
@@ -48,7 +51,36 @@ export default function CalendarPage() {
   const clearFilters = () => {
     setMonth(currentMonth);
     setYear(currentYear);
+    setSelectedMember("All");
+    setSelectedLeaveType("All");
+    setSelectedStatus("All");
   };
+
+  /* ---------- Filtered Leaves ---------- */
+
+  const filteredLeaves = useMemo(() => {
+    return leaves.filter(l => {
+      const d = new Date(l.startDate);
+
+      if (d.getMonth() !== month) return false;
+      if (d.getFullYear() !== year) return false;
+      if (selectedMember !== "All" && l.memberName !== selectedMember)
+        return false;
+      if (selectedLeaveType !== "All" && l.leaveType !== selectedLeaveType)
+        return false;
+      if (selectedStatus !== "All" && l.status !== selectedStatus)
+        return false;
+
+      return true;
+    });
+  }, [
+    leaves,
+    month,
+    year,
+    selectedMember,
+    selectedLeaveType,
+    selectedStatus,
+  ]);
 
   /* ---------- Calendar Grid ---------- */
 
@@ -69,7 +101,7 @@ export default function CalendarPage() {
   const leavesByDate = useMemo(() => {
     const map: Record<number, Leave[]> = {};
 
-    leaves.forEach(l => {
+    filteredLeaves.forEach(l => {
       const start = new Date(l.startDate);
       const end = new Date(l.endDate);
 
@@ -93,7 +125,15 @@ export default function CalendarPage() {
     });
 
     return map;
-  }, [leaves, month, year]);
+  }, [filteredLeaves, month, year]);
+
+  const members = Array.from(
+    new Set(leaves.map(l => l.memberName))
+  ).sort((a, b) => a.localeCompare(b));
+
+  const leaveTypes = Array.from(
+    new Set(leaves.map(l => l.leaveType))
+  );
 
   const years = Array.from(
     new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
@@ -103,7 +143,6 @@ export default function CalendarPage() {
 
   return (
     <>
-      {/* ADD / EDIT LEAVE */}
       <LeaveForm
         onAdd={addLeave}
         onUpdate={updateLeave}
@@ -136,7 +175,38 @@ export default function CalendarPage() {
             ))}
           </select>
 
-          {/* Push button to the right */}
+          <select
+            className="border px-3 py-2 rounded text-sm"
+            value={selectedMember}
+            onChange={e => setSelectedMember(e.target.value)}
+          >
+            <option value="All">All Members</option>
+            {members.map(m => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+
+          <select
+            className="border px-3 py-2 rounded text-sm"
+            value={selectedLeaveType}
+            onChange={e => setSelectedLeaveType(e.target.value)}
+          >
+            <option value="All">All Leave Types</option>
+            {leaveTypes.map(t => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
+
+          <select
+            className="border px-3 py-2 rounded text-sm"
+            value={selectedStatus}
+            onChange={e => setSelectedStatus(e.target.value)}
+          >
+            <option value="All">All Status</option>
+            <option value="Planned">Planned</option>
+            <option value="Confirmed">Confirmed</option>
+          </select>
+
           <div className="flex-1" />
 
           <button
@@ -147,7 +217,7 @@ export default function CalendarPage() {
           </button>
         </div>
 
-        {/* Calendar Grid */}
+        {/* Calendar */}
         <div className="grid grid-cols-7 gap-2">
           {daysOfWeek.map(d => (
             <div key={d} className="font-semibold text-center">
