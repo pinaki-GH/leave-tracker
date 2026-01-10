@@ -1,6 +1,7 @@
 "use client";
 
 import { Leave } from "@/lib/types";
+import { exportLeavesToExcel } from "@/lib/exportToExcel";
 
 type Props = {
   leaves: Leave[];
@@ -59,7 +60,16 @@ export default function LeaveList({
 
   return (
     <div className="bg-white p-6 rounded shadow">
-      <h2 className="text-lg font-bold mb-4">List of Leaves</h2>
+      <div className="flex items-center mb-4">
+        <h2 className="text-lg font-bold">List of Leaves</h2>
+        <div className="flex-1" />
+        <button
+          onClick={() => exportLeavesToExcel(allLeaves)}
+          className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
+        >
+          Export to Excel
+        </button>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4 mb-5">
@@ -119,7 +129,7 @@ export default function LeaveList({
 
         <button
           onClick={onClearFilters}
-          className="border px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-100"
+          className="border px-4 py-2 rounded text-sm"
         >
           Clear Filters
         </button>
@@ -146,7 +156,7 @@ export default function LeaveList({
               <td className="border p-2 text-center">{l.leaveType}</td>
               <td className="border p-2 text-center">
                 <span
-                  className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
+                  className={`inline-flex px-3 py-1 rounded-full text-sm ${
                     l.status === "Confirmed"
                       ? "bg-green-100 text-green-700"
                       : "bg-yellow-100 text-yellow-700"
@@ -174,14 +184,6 @@ export default function LeaveList({
               </td>
             </tr>
           ))}
-
-          {leaves.length === 0 && (
-            <tr>
-              <td colSpan={7} className="text-center p-4 text-gray-500">
-                No leaves match the selected filters
-              </td>
-            </tr>
-          )}
         </tbody>
       </table>
     </div>
