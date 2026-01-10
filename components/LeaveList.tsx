@@ -47,7 +47,7 @@ export default function LeaveList({
 }: Props) {
   const members = Array.from(
     new Set(allLeaves.map(l => l.memberName))
-  );
+  ).sort((a, b) => a.localeCompare(b));
 
   const leaveTypes = Array.from(
     new Set(allLeaves.map(l => l.leaveType))
@@ -115,7 +115,6 @@ export default function LeaveList({
           <option value="Confirmed">Confirmed</option>
         </select>
 
-        {/* Push button to the right */}
         <div className="flex-1" />
 
         <button
