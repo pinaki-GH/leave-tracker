@@ -11,16 +11,16 @@ export default function Home() {
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
 
   // Default current month/year
-  const currentDate = new Date();
-  const currentMonth = currentDate.getMonth();
-  const currentYear = currentDate.getFullYear();
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
 
   // Filters
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [selectedMember, setSelectedMember] = useState<string>("All");
-  const [selectedLeaveType, setSelectedLeaveType] = useState<string>("All");
-  const [selectedStatus, setSelectedStatus] = useState<string>("All");
+  const [selectedMember, setSelectedMember] = useState("All");
+  const [selectedLeaveType, setSelectedLeaveType] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("All");
 
   useEffect(() => {
     setLeaves(getData("leaves"));
@@ -47,31 +47,32 @@ export default function Home() {
     saveData("leaves", updated);
   };
 
-  // 🔄 Clear all filters
-  const clearFilters = () => {
-    setSelectedMember("All");
-    setSelectedLeaveType("All");
-    setSelectedStatus("All");
-    setSelectedMonth(currentMonth);
-    setSelectedYear(currentYear);
-  };
-
-  // 🔍 Filtered leaves
+  // 🔍 Filter + SORT
   const filteredLeaves = useMemo(() => {
-    return leaves.filter(l => {
-      const d = new Date(l.startDate);
+    return leaves
+      .filter(l => {
+        const d = new Date(l.startDate);
 
-      if (d.getMonth() !== selectedMonth) return false;
-      if (d.getFullYear() !== selectedYear) return false;
-      if (selectedMember !== "All" && l.memberName !== selectedMember)
-        return false;
-      if (selectedLeaveType !== "All" && l.leaveType !== selectedLeaveType)
-        return false;
-      if (selectedStatus !== "All" && l.status !== selectedStatus)
-        return false;
+        if (d.getMonth() !== selectedMonth) return false;
+        if (d.getFullYear() !== selectedYear) return false;
+        if (selectedMember !== "All" && l.memberName !== selectedMember)
+          return false;
+        if (selectedLeaveType !== "All" && l.leaveType !== selectedLeaveType)
+          return false;
+        if (selectedStatus !== "All" && l.status !== selectedStatus)
+          return false;
 
-      return true;
-    });
+        return true;
+      })
+      .sort((a, b) => {
+        const dateDiff =
+          new Date(a.startDate).getTime() -
+          new Date(b.startDate).getTime();
+
+        if (dateDiff !== 0) return dateDiff;
+
+        return a.memberName.localeCompare(b.memberName);
+      });
   }, [
     leaves,
     selectedMonth,
@@ -105,7 +106,13 @@ export default function Home() {
         onMemberChange={setSelectedMember}
         onLeaveTypeChange={setSelectedLeaveType}
         onStatusChange={setSelectedStatus}
-        onClearFilters={clearFilters}
+        onClearFilters={() => {
+          setSelectedMember("All");
+          setSelectedLeaveType("All");
+          setSelectedStatus("All");
+          setSelectedMonth(currentMonth);
+          setSelectedYear(currentYear);
+        }}
       />
     </>
   );
