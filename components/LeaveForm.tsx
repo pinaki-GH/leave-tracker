@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Leave, LeaveStatus } from "@/lib/types";
 import { getData } from "@/lib/storage";
 
@@ -33,6 +33,11 @@ export default function LeaveForm({
     setTypes(getData<any>("leaveTypes").map(t => t.name));
   }, []);
 
+  const sortedMembers = useMemo(
+    () => [...members].sort((a, b) => a.localeCompare(b)),
+    [members]
+  );
+
   useEffect(() => {
     if (editingLeave) {
       const { id, ...rest } = editingLeave;
@@ -41,9 +46,8 @@ export default function LeaveForm({
   }, [editingLeave]);
 
   const submit = () => {
-    if (!form.memberName || !form.leaveType || !form.startDate || !form.endDate) {
+    if (!form.memberName || !form.leaveType || !form.startDate || !form.endDate)
       return;
-    }
 
     if (editingLeave) {
       onUpdate({ ...form, id: editingLeave.id });
@@ -84,7 +88,7 @@ export default function LeaveForm({
               }
             >
               <option value="">Select Member</option>
-              {members.map(m => (
+              {sortedMembers.map(m => (
                 <option key={m}>{m}</option>
               ))}
             </select>
@@ -129,23 +133,23 @@ export default function LeaveForm({
             </select>
           </div>
 
-          {/* PTO Days */}
+          {/* PTO */}
           <div>
             <label className="block text-sm font-medium mb-1">
               PTO Days
             </label>
             <input
               type="number"
+              min={1}
               className="w-full border px-3 py-2 rounded text-sm"
               value={form.ptoDays}
-              min={1}
               onChange={e =>
                 setForm({ ...form, ptoDays: +e.target.value })
               }
             />
           </div>
 
-          {/* Start Date */}
+          {/* Start */}
           <div>
             <label className="block text-sm font-medium mb-1">
               Start Date
@@ -160,7 +164,7 @@ export default function LeaveForm({
             />
           </div>
 
-          {/* End Date */}
+          {/* End */}
           <div>
             <label className="block text-sm font-medium mb-1">
               End Date
