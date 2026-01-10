@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import LeaveForm from "@/components/LeaveForm";
 import { Leave } from "@/lib/types";
 import { getData, saveData } from "@/lib/storage";
+import { exportLeavesToExcel } from "@/lib/exportToExcel";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const months = [
@@ -127,6 +128,8 @@ export default function CalendarPage() {
     return map;
   }, [filteredLeaves, month, year]);
 
+  /* ---------- Filter Options ---------- */
+
   const members = Array.from(
     new Set(leaves.map(l => l.memberName))
   ).sort((a, b) => a.localeCompare(b));
@@ -143,6 +146,7 @@ export default function CalendarPage() {
 
   return (
     <>
+      {/* Add / Edit Leave */}
       <LeaveForm
         onAdd={addLeave}
         onUpdate={updateLeave}
@@ -151,7 +155,16 @@ export default function CalendarPage() {
       />
 
       <div className="bg-white p-6 rounded shadow">
-        <h2 className="text-lg font-bold mb-4">Calendar View</h2>
+        <div className="flex items-center mb-4">
+          <h2 className="text-lg font-bold">Calendar View</h2>
+          <div className="flex-1" />
+          <button
+            onClick={() => exportLeavesToExcel(leaves)}
+            className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
+          >
+            Export to Excel
+          </button>
+        </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-4 mb-6">
