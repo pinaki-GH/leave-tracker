@@ -21,8 +21,8 @@ export default function MembersPage() {
   const [editValue, setEditValue] = useState("");
 
   useEffect(() => {
-    setMembers(getData<Item[]>("members") || []);
-    setLeaveTypes(getData<Item[]>("leaveTypes") || []);
+    setMembers((getData("members") as Item[]) || []);
+    setLeaveTypes((getData("leaveTypes") as Item[]) || []);
   }, []);
 
   /* ---------- Helpers ---------- */
