@@ -20,7 +20,8 @@ export default function SummaryPage() {
   const [members, setMembers] = useState<string[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
 
-  const [month, setMonth] = useState(new Date().getMonth());
+  // 🔹 Month can now be number OR "All"
+  const [month, setMonth] = useState<number | "All">(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
@@ -44,7 +45,10 @@ export default function SummaryPage() {
       if (l.status !== "Confirmed") return;
 
       const d = new Date(l.startDate);
-      if (d.getMonth() !== month || d.getFullYear() !== year) return;
+
+      // 🔹 Apply month filter only if not "All"
+      if (month !== "All" && d.getMonth() !== month) return;
+      if (d.getFullYear() !== year) return;
 
       const row = rows.find(r => r.member === l.memberName);
       if (!row) return;
@@ -71,8 +75,15 @@ export default function SummaryPage() {
         <select
           className="border px-3 py-2 rounded text-sm"
           value={month}
-          onChange={e => setMonth(+e.target.value)}
+          onChange={e =>
+            setMonth(
+              e.target.value === "All"
+                ? "All"
+                : Number(e.target.value)
+            )
+          }
         >
+          <option value="All">All Months</option>
           {months.map((m, i) => (
             <option key={m} value={i}>{m}</option>
           ))}
@@ -81,7 +92,7 @@ export default function SummaryPage() {
         <select
           className="border px-3 py-2 rounded text-sm"
           value={year}
-          onChange={e => setYear(+e.target.value)}
+          onChange={e => setYear(Number(e.target.value))}
         >
           {years.map(y => (
             <option key={y}>{y}</option>
@@ -128,7 +139,7 @@ export default function SummaryPage() {
                 colSpan={leaveTypes.length + 2}
                 className="text-center p-4 text-gray-500"
               >
-                No data for selected month
+                No data for selected period
               </td>
             </tr>
           )}
