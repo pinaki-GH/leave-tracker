@@ -20,7 +20,6 @@ export default function SummaryPage() {
   const [members, setMembers] = useState<string[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
 
-  // 🔹 Month can now be number OR "All"
   const [month, setMonth] = useState<number | "All">(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
 
@@ -46,7 +45,6 @@ export default function SummaryPage() {
 
       const d = new Date(l.startDate);
 
-      // 🔹 Apply month filter only if not "All"
       if (month !== "All" && d.getMonth() !== month) return;
       if (d.getFullYear() !== year) return;
 
@@ -57,7 +55,10 @@ export default function SummaryPage() {
       row.total += l.ptoDays;
     });
 
-    return rows;
+    // 🔹 SORT BY MEMBER NAME (A → Z)
+    return rows.sort((a, b) =>
+      a.member.localeCompare(b.member)
+    );
   }, [leaves, members, leaveTypes, month, year]);
 
   const years = Array.from(
