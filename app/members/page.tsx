@@ -3,36 +3,50 @@
 import { useEffect, useState } from "react";
 import { getData, saveData } from "@/lib/storage";
 
-type Item = {
+type Member = {
+  id: string;
+  name: string;
+  organization: string;
+  location: string;
+};
+
+type LeaveType = {
   id: string;
   name: string;
 };
 
 export default function MembersPage() {
-  const [members, setMembers] = useState<Item[]>([]);
-  const [leaveTypes, setLeaveTypes] = useState<Item[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
 
-  const [newMember, setNewMember] = useState("");
-  const [newLeaveType, setNewLeaveType] = useState("");
+  /* ---------- Add Member ---------- */
+  const [newName, setNewName] = useState("");
+  const [newOrg, setNewOrg] = useState("");
+  const [newLocation, setNewLocation] = useState("");
 
+  /* ---------- Edit ---------- */
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editingLeaveTypeId, setEditingLeaveTypeId] = useState<string | null>(null);
 
-  const [editValue, setEditValue] = useState("");
+  const [editMember, setEditMember] = useState<Partial<Member>>({});
+  const [editLeaveTypeName, setEditLeaveTypeName] = useState("");
+
+  /* ---------- Add Leave Type ---------- */
+  const [newLeaveType, setNewLeaveType] = useState("");
 
   useEffect(() => {
-    setMembers((getData("members") as Item[]) || []);
-    setLeaveTypes((getData("leaveTypes") as Item[]) || []);
+    setMembers((getData("members") as Member[]) || []);
+    setLeaveTypes((getData("leaveTypes") as LeaveType[]) || []);
   }, []);
 
   /* ---------- Helpers ---------- */
 
-  const saveMembers = (data: Item[]) => {
+  const saveMembers = (data: Member[]) => {
     setMembers(data);
     saveData("members", data);
   };
 
-  const saveLeaveTypes = (data: Item[]) => {
+  const saveLeaveTypes = (data: LeaveType[]) => {
     setLeaveTypes(data);
     saveData("leaveTypes", data);
   };
@@ -40,27 +54,41 @@ export default function MembersPage() {
   /* ---------- Members ---------- */
 
   const addMember = () => {
-    if (!newMember.trim()) return;
+    if (!newName.trim()) return;
 
     saveMembers([
       ...members,
-      { id: crypto.randomUUID(), name: newMember.trim() },
+      {
+        id: crypto.randomUUID(),
+        name: newName.trim(),
+        organization: newOrg.trim(),
+        location: newLocation.trim(),
+      },
     ]);
 
-    setNewMember("");
+    setNewName("");
+    setNewOrg("");
+    setNewLocation("");
   };
 
   const updateMember = () => {
-    if (!editValue.trim() || !editingMemberId) return;
+    if (!editingMemberId || !editMember.name?.trim()) return;
 
     saveMembers(
       members.map(m =>
-        m.id === editingMemberId ? { ...m, name: editValue.trim() } : m
+        m.id === editingMemberId
+          ? {
+              ...m,
+              name: editMember.name!.trim(),
+              organization: editMember.organization || "",
+              location: editMember.location || "",
+            }
+          : m
       )
     );
 
     setEditingMemberId(null);
-    setEditValue("");
+    setEditMember({});
   };
 
   const deleteMember = (id: string) => {
@@ -81,16 +109,18 @@ export default function MembersPage() {
   };
 
   const updateLeaveType = () => {
-    if (!editValue.trim() || !editingLeaveTypeId) return;
+    if (!editingLeaveTypeId || !editLeaveTypeName.trim()) return;
 
     saveLeaveTypes(
       leaveTypes.map(t =>
-        t.id === editingLeaveTypeId ? { ...t, name: editValue.trim() } : t
+        t.id === editingLeaveTypeId
+          ? { ...t, name: editLeaveTypeName.trim() }
+          : t
       )
     );
 
     setEditingLeaveTypeId(null);
-    setEditValue("");
+    setEditLeaveTypeName("");
   };
 
   const deleteLeaveType = (id: string) => {
@@ -101,61 +131,107 @@ export default function MembersPage() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Members */}
+      {/* Team Members */}
       <div className="bg-white p-6 rounded shadow">
         <h2 className="text-lg font-bold mb-4">Team Members</h2>
 
-        <div className="flex gap-2 mb-4">
+        {/* Add Member */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
           <input
-            className="border px-3 py-2 rounded text-sm flex-1"
-            placeholder="Add new member"
-            value={newMember}
-            onChange={e => setNewMember(e.target.value)}
+            className="border px-3 py-2 rounded text-sm"
+            placeholder="Member Name"
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
           />
-          <button
-            onClick={addMember}
-            className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
-          >
-            Add
-          </button>
+          <input
+            className="border px-3 py-2 rounded text-sm"
+            placeholder="Organization"
+            value={newOrg}
+            onChange={e => setNewOrg(e.target.value)}
+          />
+          <input
+            className="border px-3 py-2 rounded text-sm"
+            placeholder="Location"
+            value={newLocation}
+            onChange={e => setNewLocation(e.target.value)}
+          />
         </div>
 
+        <button
+          onClick={addMember}
+          className="bg-blue-600 text-white px-4 py-2 rounded text-sm mb-4"
+        >
+          Add Member
+        </button>
+
+        {/* Member List */}
         <ul className="space-y-2">
           {members.map(m => (
             <li
               key={m.id}
-              className="flex items-center gap-2 border p-2 rounded"
+              className="border rounded p-3"
             >
               {editingMemberId === m.id ? (
-                <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <input
-                    className="border px-2 py-1 rounded text-sm flex-1"
-                    value={editValue}
-                    onChange={e => setEditValue(e.target.value)}
+                    className="border px-2 py-1 rounded text-sm"
+                    value={editMember.name || ""}
+                    onChange={e =>
+                      setEditMember({ ...editMember, name: e.target.value })
+                    }
                   />
-                  <button
-                    onClick={updateMember}
-                    className="text-blue-600 text-sm"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingMemberId(null);
-                      setEditValue("");
-                    }}
-                    className="text-gray-500 text-sm"
-                  >
-                    Cancel
-                  </button>
-                </>
+                  <input
+                    className="border px-2 py-1 rounded text-sm"
+                    value={editMember.organization || ""}
+                    onChange={e =>
+                      setEditMember({
+                        ...editMember,
+                        organization: e.target.value,
+                      })
+                    }
+                  />
+                  <input
+                    className="border px-2 py-1 rounded text-sm"
+                    value={editMember.location || ""}
+                    onChange={e =>
+                      setEditMember({
+                        ...editMember,
+                        location: e.target.value,
+                      })
+                    }
+                  />
+
+                  <div className="col-span-full flex gap-2 mt-2">
+                    <button
+                      onClick={updateMember}
+                      className="text-blue-600 text-sm"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingMemberId(null);
+                        setEditMember({});
+                      }}
+                      className="text-gray-500 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <>
-                  <span className="flex-1">{m.name}</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <div className="font-medium">{m.name}</div>
+                    <div className="text-sm text-gray-600">
+                      {m.organization || "—"} · {m.location || "—"}
+                    </div>
+                  </div>
+
                   <button
                     onClick={() => {
                       setEditingMemberId(m.id);
-                      setEditValue(m.name);
+                      setEditMember(m);
                     }}
                     className="text-blue-600 text-sm"
                   >
@@ -167,7 +243,7 @@ export default function MembersPage() {
                   >
                     Delete
                   </button>
-                </>
+                </div>
               )}
             </li>
           ))}
@@ -203,8 +279,8 @@ export default function MembersPage() {
                 <>
                   <input
                     className="border px-2 py-1 rounded text-sm flex-1"
-                    value={editValue}
-                    onChange={e => setEditValue(e.target.value)}
+                    value={editLeaveTypeName}
+                    onChange={e => setEditLeaveTypeName(e.target.value)}
                   />
                   <button
                     onClick={updateLeaveType}
@@ -215,7 +291,7 @@ export default function MembersPage() {
                   <button
                     onClick={() => {
                       setEditingLeaveTypeId(null);
-                      setEditValue("");
+                      setEditLeaveTypeName("");
                     }}
                     className="text-gray-500 text-sm"
                   >
@@ -228,7 +304,7 @@ export default function MembersPage() {
                   <button
                     onClick={() => {
                       setEditingLeaveTypeId(t.id);
-                      setEditValue(t.name);
+                      setEditLeaveTypeName(t.name);
                     }}
                     className="text-blue-600 text-sm"
                   >
