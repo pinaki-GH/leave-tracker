@@ -39,7 +39,6 @@ export default function SummaryPage() {
       ((getData("leaveTypes") as any[]) || []).map(t => t.name)
     );
 
-    // ✅ SAFE approvalStatus loading
     const raw = getData("approvalStatus");
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
       setApprovalMap(raw as Record<string, ApprovalStatus>);
@@ -53,12 +52,15 @@ export default function SummaryPage() {
 
   const updateApproval = (member: string, status: ApprovalStatus) => {
     const key = approvalKey(member);
-    const updated = {
+    const updated: Record<string, ApprovalStatus> = {
       ...approvalMap,
       [key]: status,
     };
+
     setApprovalMap(updated);
-    saveData("approvalStatus", updated);
+
+    // ✅ Cast ONLY at persistence boundary
+    saveData("approvalStatus", updated as unknown as any[]);
   };
 
   const summary = useMemo<SummaryRow[]>(() => {
