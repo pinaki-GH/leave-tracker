@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Leave } from "@/lib/types";
-import { getData } from "@/lib/storage";
+import { getData, saveData } from "@/lib/storage";
 
 const months = [
   "January","February","March","April","May","June",
@@ -13,27 +13,50 @@ type SummaryRow = {
   member: string;
   totals: Record<string, number>;
   total: number;
+  approvalStatus: "Approved" | "Pending";
 };
 
 export default function SummaryPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [members, setMembers] = useState<string[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
+  const [approvalMap, setApprovalMap] = useState<Record<string, string>>({});
 
   const [month, setMonth] = useState<number | "All">(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     setLeaves(getData("leaves"));
-    setMembers(getData<any>("members").map(m => m.name));
-    setLeaveTypes(getData<any>("leaveTypes").map(t => t.name));
+    setMembers(getData<any>("members").map((m: any) => m.name));
+    setLeaveTypes(getData<any>("leaveTypes").map((t: any) => t.name));
+    setApprovalMap(getData("approvalStatus") || {});
   }, []);
+
+  const approvalKey = (member: string) =>
+    `${year}-${month}-${member}`;
+
+  const updateApproval = (
+    member: string,
+    status: "Approved" | "Pending"
+  ) => {
+    const key = approvalKey(member);
+    const updated = {
+      ...approvalMap,
+      [key]: status,
+    };
+    setApprovalMap(updated);
+    saveData("approvalStatus", updated);
+  };
 
   const summary = useMemo<SummaryRow[]>(() => {
     const rows: SummaryRow[] = members.map(member => ({
       member,
       totals: {},
       total: 0,
+      approvalStatus:
+        (approvalMap[approvalKey(member)] as
+          | "Approved"
+          | "Pending") || "Pending",
     }));
 
     rows.forEach(row => {
@@ -44,7 +67,6 @@ export default function SummaryPage() {
       if (l.status !== "Confirmed") return;
 
       const d = new Date(l.startDate);
-
       if (month !== "All" && d.getMonth() !== month) return;
       if (d.getFullYear() !== year) return;
 
@@ -55,11 +77,10 @@ export default function SummaryPage() {
       row.total += l.ptoDays;
     });
 
-    // 🔹 SORT BY MEMBER NAME (A → Z)
     return rows.sort((a, b) =>
       a.member.localeCompare(b.member)
     );
-  }, [leaves, members, leaveTypes, month, year]);
+  }, [leaves, members, leaveTypes, month, year, approvalMap]);
 
   const years = Array.from(
     new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
@@ -112,6 +133,9 @@ export default function SummaryPage() {
               </th>
             ))}
             <th className="border p-2 text-center">Total</th>
+            <th className="border p-2 text-center">
+              Approval Status
+            </th>
           </tr>
         </thead>
 
@@ -131,13 +155,35 @@ export default function SummaryPage() {
               <td className="border p-2 text-center font-semibold">
                 {row.total}
               </td>
+
+              <td className="border p-2 text-center">
+                <select
+                  value={row.approvalStatus}
+                  onChange={e =>
+                    updateApproval(
+                      row.member,
+                      e.target.value as "Approved" | "Pending"
+                    )
+                  }
+                  className={`px-2 py-1 rounded text-sm font-medium
+                    ${
+                      row.approvalStatus === "Approved"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }
+                  `}
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                </select>
+              </td>
             </tr>
           ))}
 
           {summary.length === 0 && (
             <tr>
               <td
-                colSpan={leaveTypes.length + 2}
+                colSpan={leaveTypes.length + 3}
                 className="text-center p-4 text-gray-500"
               >
                 No data for selected period
