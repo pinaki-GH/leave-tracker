@@ -9,11 +9,13 @@ const months = [
   "July","August","September","October","November","December"
 ];
 
+type ApprovalStatus = "Approved" | "Pending";
+
 type SummaryRow = {
   member: string;
   totals: Record<string, number>;
   total: number;
-  approvalStatus: "Approved" | "Pending";
+  approvalStatus: ApprovalStatus;
 };
 
 export default function SummaryPage() {
@@ -21,33 +23,35 @@ export default function SummaryPage() {
   const [members, setMembers] = useState<string[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
   const [approvalMap, setApprovalMap] =
-    useState<Record<string, "Approved" | "Pending">>({});
+    useState<Record<string, ApprovalStatus>>({});
 
   const [month, setMonth] = useState<number | "All">(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     setLeaves((getData("leaves") as Leave[]) || []);
+
     setMembers(
       ((getData("members") as any[]) || []).map(m => m.name)
     );
+
     setLeaveTypes(
       ((getData("leaveTypes") as any[]) || []).map(t => t.name)
     );
-    setApprovalMap(
-      (getData("approvalStatus") as
-        | Record<string, "Approved" | "Pending">
-        | undefined) || {}
-    );
+
+    // ✅ SAFE approvalStatus loading
+    const raw = getData("approvalStatus");
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      setApprovalMap(raw as Record<string, ApprovalStatus>);
+    } else {
+      setApprovalMap({});
+    }
   }, []);
 
   const approvalKey = (member: string) =>
     `${year}-${month}-${member}`;
 
-  const updateApproval = (
-    member: string,
-    status: "Approved" | "Pending"
-  ) => {
+  const updateApproval = (member: string, status: ApprovalStatus) => {
     const key = approvalKey(member);
     const updated = {
       ...approvalMap,
@@ -169,9 +173,7 @@ export default function SummaryPage() {
                   onChange={e =>
                     updateApproval(
                       row.member,
-                      e.target.value as
-                        | "Approved"
-                        | "Pending"
+                      e.target.value as ApprovalStatus
                     )
                   }
                   className={`px-2 py-1 rounded text-sm font-medium ${
