@@ -20,16 +20,25 @@ export default function SummaryPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [members, setMembers] = useState<string[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
-  const [approvalMap, setApprovalMap] = useState<Record<string, string>>({});
+  const [approvalMap, setApprovalMap] =
+    useState<Record<string, "Approved" | "Pending">>({});
 
   const [month, setMonth] = useState<number | "All">(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    setLeaves(getData("leaves"));
-    setMembers(getData<any>("members").map((m: any) => m.name));
-    setLeaveTypes(getData<any>("leaveTypes").map((t: any) => t.name));
-    setApprovalMap(getData("approvalStatus") || {});
+    setLeaves((getData("leaves") as Leave[]) || []);
+    setMembers(
+      ((getData("members") as any[]) || []).map(m => m.name)
+    );
+    setLeaveTypes(
+      ((getData("leaveTypes") as any[]) || []).map(t => t.name)
+    );
+    setApprovalMap(
+      (getData("approvalStatus") as
+        | Record<string, "Approved" | "Pending">
+        | undefined) || {}
+    );
   }, []);
 
   const approvalKey = (member: string) =>
@@ -54,9 +63,7 @@ export default function SummaryPage() {
       totals: {},
       total: 0,
       approvalStatus:
-        (approvalMap[approvalKey(member)] as
-          | "Approved"
-          | "Pending") || "Pending",
+        approvalMap[approvalKey(member)] || "Pending",
     }));
 
     rows.forEach(row => {
@@ -162,16 +169,16 @@ export default function SummaryPage() {
                   onChange={e =>
                     updateApproval(
                       row.member,
-                      e.target.value as "Approved" | "Pending"
+                      e.target.value as
+                        | "Approved"
+                        | "Pending"
                     )
                   }
-                  className={`px-2 py-1 rounded text-sm font-medium
-                    ${
-                      row.approvalStatus === "Approved"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }
-                  `}
+                  className={`px-2 py-1 rounded text-sm font-medium ${
+                    row.approvalStatus === "Approved"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-yellow-100 text-yellow-700"
+                  }`}
                 >
                   <option value="Pending">Pending</option>
                   <option value="Approved">Approved</option>
