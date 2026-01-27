@@ -1,324 +1,208 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Leave } from "@/lib/types";
 import { getData, saveData } from "@/lib/storage";
 
-type Member = {
-  id: string;
-  name: string;
-  organization: string;
-  location: string;
+const months = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December"
+];
+
+type ApprovalStatus = "Approved" | "Pending";
+
+type SummaryRow = {
+  member: string;
+  totals: Record<string, number>;
+  total: number;
+  approvalStatus: ApprovalStatus;
 };
 
-type LeaveType = {
-  id: string;
-  name: string;
-};
+export default function SummaryPage() {
+  const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [members, setMembers] = useState<string[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
+  const [approvalMap, setApprovalMap] =
+    useState<Record<string, ApprovalStatus>>({});
 
-export default function MembersPage() {
-  const [members, setMembers] = useState<Member[]>([]);
-  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
-
-  /* ---------- Add Member ---------- */
-  const [newName, setNewName] = useState("");
-  const [newOrg, setNewOrg] = useState("");
-  const [newLocation, setNewLocation] = useState("");
-
-  /* ---------- Edit ---------- */
-  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
-  const [editingLeaveTypeId, setEditingLeaveTypeId] = useState<string | null>(null);
-
-  const [editMember, setEditMember] = useState<Partial<Member>>({});
-  const [editLeaveTypeName, setEditLeaveTypeName] = useState("");
-
-  /* ---------- Add Leave Type ---------- */
-  const [newLeaveType, setNewLeaveType] = useState("");
+  const [month, setMonth] = useState<number | "All">(new Date().getMonth());
+  const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    // 🔹 Normalize existing data to include organization & location
-    const storedMembers = (getData("members") as Partial<Member>[]) || [];
-    const normalizedMembers: Member[] = storedMembers.map(m => ({
-      id: m.id!,
-      name: m.name!,
-      organization: m.organization || "",
-      location: m.location || "",
-    }));
+    setLeaves((getData("leaves") as Leave[]) || []);
 
-    setMembers(normalizedMembers);
-    setLeaveTypes((getData("leaveTypes") as LeaveType[]) || []);
+    setMembers(
+      ((getData("members") as any[]) || []).map(m => m.name)
+    );
+
+    setLeaveTypes(
+      ((getData("leaveTypes") as any[]) || []).map(t => t.name)
+    );
+
+    const raw = getData("approvalStatus");
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      setApprovalMap(raw as Record<string, ApprovalStatus>);
+    } else {
+      setApprovalMap({});
+    }
   }, []);
 
-  /* ---------- Helpers ---------- */
+  const approvalKey = (member: string) =>
+    `${year}-${month}-${member}`;
 
-  const saveMembers = (data: Member[]) => {
-    setMembers(data);
-    saveData("members", data);
+  const updateApproval = (member: string, status: ApprovalStatus) => {
+    const key = approvalKey(member);
+    const updated: Record<string, ApprovalStatus> = {
+      ...approvalMap,
+      [key]: status,
+    };
+
+    setApprovalMap(updated);
+
+    // ✅ Cast ONLY at persistence boundary
+    saveData("approvalStatus", updated as unknown as any[]);
   };
 
-  const saveLeaveTypes = (data: LeaveType[]) => {
-    setLeaveTypes(data);
-    saveData("leaveTypes", data);
-  };
+  const summary = useMemo<SummaryRow[]>(() => {
+    const rows: SummaryRow[] = members.map(member => ({
+      member,
+      totals: {},
+      total: 0,
+      approvalStatus:
+        approvalMap[approvalKey(member)] || "Pending",
+    }));
 
-  /* ---------- Members ---------- */
+    rows.forEach(row => {
+      leaveTypes.forEach(t => (row.totals[t] = 0));
+    });
 
-  const addMember = () => {
-    if (!newName.trim()) return;
+    leaves.forEach(l => {
+      if (l.status !== "Confirmed") return;
 
-    saveMembers([
-      ...members,
-      {
-        id: crypto.randomUUID(),
-        name: newName.trim(),
-        organization: newOrg.trim(),
-        location: newLocation.trim(),
-      },
-    ]);
+      const d = new Date(l.startDate);
+      if (month !== "All" && d.getMonth() !== month) return;
+      if (d.getFullYear() !== year) return;
 
-    setNewName("");
-    setNewOrg("");
-    setNewLocation("");
-  };
+      const row = rows.find(r => r.member === l.memberName);
+      if (!row) return;
 
-  const updateMember = () => {
-    if (!editingMemberId || !editMember.name?.trim()) return;
+      row.totals[l.leaveType] += l.ptoDays;
+      row.total += l.ptoDays;
+    });
 
-    saveMembers(
-      members.map(m =>
-        m.id === editingMemberId
-          ? {
-              ...m,
-              name: editMember.name!.trim(),
-              organization: editMember.organization || "",
-              location: editMember.location || "",
-            }
-          : m
-      )
+    return rows.sort((a, b) =>
+      a.member.localeCompare(b.member)
     );
+  }, [leaves, members, leaveTypes, month, year, approvalMap]);
 
-    setEditingMemberId(null);
-    setEditMember({});
-  };
-
-  const deleteMember = (id: string) => {
-    saveMembers(members.filter(m => m.id !== id));
-  };
-
-  /* ---------- Leave Types ---------- */
-
-  const addLeaveType = () => {
-    if (!newLeaveType.trim()) return;
-
-    saveLeaveTypes([
-      ...leaveTypes,
-      { id: crypto.randomUUID(), name: newLeaveType.trim() },
-    ]);
-
-    setNewLeaveType("");
-  };
-
-  const updateLeaveType = () => {
-    if (!editingLeaveTypeId || !editLeaveTypeName.trim()) return;
-
-    saveLeaveTypes(
-      leaveTypes.map(t =>
-        t.id === editingLeaveTypeId
-          ? { ...t, name: editLeaveTypeName.trim() }
-          : t
-      )
-    );
-
-    setEditingLeaveTypeId(null);
-    setEditLeaveTypeName("");
-  };
-
-  const deleteLeaveType = (id: string) => {
-    saveLeaveTypes(leaveTypes.filter(t => t.id !== id));
-  };
-
-  /* ---------- UI ---------- */
+  const years = Array.from(
+    new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
+  ).sort();
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Team Members */}
-      <div className="bg-white p-6 rounded shadow">
-        <h2 className="text-lg font-bold mb-4">Team Members</h2>
+    <div className="bg-white p-6 rounded shadow">
+      <h2 className="text-lg font-bold mb-4">
+        Summary View (Confirmed Leaves)
+      </h2>
 
-        {/* Add Member */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
-          <input
-            className="border px-3 py-2 rounded text-sm"
-            placeholder="Member Name"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-          />
-          <input
-            className="border px-3 py-2 rounded text-sm"
-            placeholder="Organization"
-            value={newOrg}
-            onChange={e => setNewOrg(e.target.value)}
-          />
-          <input
-            className="border px-3 py-2 rounded text-sm"
-            placeholder="Location"
-            value={newLocation}
-            onChange={e => setNewLocation(e.target.value)}
-          />
-        </div>
-
-        <button
-          onClick={addMember}
-          className="bg-blue-600 text-white px-4 py-2 rounded text-sm mb-4"
+      {/* Filters */}
+      <div className="flex gap-4 mb-6">
+        <select
+          className="border px-3 py-2 rounded text-sm"
+          value={month}
+          onChange={e =>
+            setMonth(
+              e.target.value === "All"
+                ? "All"
+                : Number(e.target.value)
+            )
+          }
         >
-          Add Member
-        </button>
-
-        {/* Member List */}
-        <ul className="space-y-2">
-          {members.map(m => (
-            <li key={m.id} className="border rounded p-3">
-              {editingMemberId === m.id ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <input
-                    className="border px-2 py-1 rounded text-sm"
-                    value={editMember.name || ""}
-                    onChange={e =>
-                      setEditMember({ ...editMember, name: e.target.value })
-                    }
-                  />
-                  <input
-                    className="border px-2 py-1 rounded text-sm"
-                    value={editMember.organization || ""}
-                    onChange={e =>
-                      setEditMember({
-                        ...editMember,
-                        organization: e.target.value,
-                      })
-                    }
-                  />
-                  <input
-                    className="border px-2 py-1 rounded text-sm"
-                    value={editMember.location || ""}
-                    onChange={e =>
-                      setEditMember({
-                        ...editMember,
-                        location: e.target.value,
-                      })
-                    }
-                  />
-
-                  <div className="col-span-full flex gap-2 mt-2">
-                    <button onClick={updateMember} className="text-blue-600 text-sm">
-                      Save
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditingMemberId(null);
-                        setEditMember({});
-                      }}
-                      className="text-gray-500 text-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <div className="font-medium">{m.name}</div>
-                    <div className="text-sm text-gray-600">
-                      {m.organization || "—"} · {m.location || "—"}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setEditingMemberId(m.id);
-                      setEditMember(m);
-                    }}
-                    className="text-blue-600 text-sm"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => deleteMember(m.id)}
-                    className="text-red-600 text-sm"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-            </li>
+          <option value="All">All Months</option>
+          {months.map((m, i) => (
+            <option key={m} value={i}>{m}</option>
           ))}
-        </ul>
+        </select>
+
+        <select
+          className="border px-3 py-2 rounded text-sm"
+          value={year}
+          onChange={e => setYear(Number(e.target.value))}
+        >
+          {years.map(y => (
+            <option key={y}>{y}</option>
+          ))}
+        </select>
       </div>
 
-      {/* Leave Types */}
-      <div className="bg-white p-6 rounded shadow">
-        <h2 className="text-lg font-bold mb-4">Leave Types</h2>
+      {/* Summary Table */}
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="border p-2 text-left">Member</th>
+            {leaveTypes.map(t => (
+              <th key={t} className="border p-2 text-center">
+                {t}
+              </th>
+            ))}
+            <th className="border p-2 text-center">Total</th>
+            <th className="border p-2 text-center">
+              Approval Status
+            </th>
+          </tr>
+        </thead>
 
-        <div className="flex gap-2 mb-4">
-          <input
-            className="border px-3 py-2 rounded text-sm flex-1"
-            placeholder="Add new leave type"
-            value={newLeaveType}
-            onChange={e => setNewLeaveType(e.target.value)}
-          />
-          <button
-            onClick={addLeaveType}
-            className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
-          >
-            Add
-          </button>
-        </div>
+        <tbody>
+          {summary.map(row => (
+            <tr key={row.member}>
+              <td className="border p-2 text-left">
+                {row.member}
+              </td>
 
-        <ul className="space-y-2">
-          {leaveTypes.map(t => (
-            <li key={t.id} className="flex items-center gap-2 border p-2 rounded">
-              {editingLeaveTypeId === t.id ? (
-                <>
-                  <input
-                    className="border px-2 py-1 rounded text-sm flex-1"
-                    value={editLeaveTypeName}
-                    onChange={e => setEditLeaveTypeName(e.target.value)}
-                  />
-                  <button onClick={updateLeaveType} className="text-blue-600 text-sm">
-                    Save
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingLeaveTypeId(null);
-                      setEditLeaveTypeName("");
-                    }}
-                    className="text-gray-500 text-sm"
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="flex-1">{t.name}</span>
-                  <button
-                    onClick={() => {
-                      setEditingLeaveTypeId(t.id);
-                      setEditLeaveTypeName(t.name);
-                    }}
-                    className="text-blue-600 text-sm"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => deleteLeaveType(t.id)}
-                    className="text-red-600 text-sm"
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
-            </li>
+              {leaveTypes.map(t => (
+                <td key={t} className="border p-2 text-center">
+                  {row.totals[t] || 0}
+                </td>
+              ))}
+
+              <td className="border p-2 text-center font-semibold">
+                {row.total}
+              </td>
+
+              <td className="border p-2 text-center">
+                <select
+                  value={row.approvalStatus}
+                  onChange={e =>
+                    updateApproval(
+                      row.member,
+                      e.target.value as ApprovalStatus
+                    )
+                  }
+                  className={`px-2 py-1 rounded text-sm font-medium ${
+                    row.approvalStatus === "Approved"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-yellow-100 text-yellow-700"
+                  }`}
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                </select>
+              </td>
+            </tr>
           ))}
-        </ul>
-      </div>
+
+          {summary.length === 0 && (
+            <tr>
+              <td
+                colSpan={leaveTypes.length + 3}
+                className="text-center p-4 text-gray-500"
+              >
+                No data for selected period
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
