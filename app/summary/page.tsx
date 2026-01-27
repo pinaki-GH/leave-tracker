@@ -13,6 +13,7 @@ type ApprovalStatus = "Approved" | "Pending";
 
 type SummaryRow = {
   member: string;
+  organization: string; // ✅ NEW
   totals: Record<string, number>;
   total: number;
   approvalStatus: ApprovalStatus;
@@ -25,15 +26,26 @@ export default function SummaryPage() {
   const [approvalMap, setApprovalMap] =
     useState<Record<string, ApprovalStatus>>({});
 
+  // ✅ NEW: member → organization map
+  const [memberOrgMap, setMemberOrgMap] =
+    useState<Record<string, string>>({});
+
   const [month, setMonth] = useState<number | "All">(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     setLeaves((getData("leaves") as Leave[]) || []);
 
-    setMembers(
-      ((getData("members") as any[]) || []).map(m => m.name)
-    );
+    const rawMembers = (getData("members") as any[]) || [];
+
+    setMembers(rawMembers.map(m => m.name));
+
+    // ✅ Build organization lookup
+    const orgMap: Record<string, string> = {};
+    rawMembers.forEach(m => {
+      orgMap[m.name] = m.organization || "—";
+    });
+    setMemberOrgMap(orgMap);
 
     setLeaveTypes(
       ((getData("leaveTypes") as any[]) || []).map(t => t.name)
@@ -66,6 +78,7 @@ export default function SummaryPage() {
   const summary = useMemo<SummaryRow[]>(() => {
     const rows: SummaryRow[] = members.map(member => ({
       member,
+      organization: memberOrgMap[member] || "—", // ✅ NEW
       totals: {},
       total: 0,
       approvalStatus:
@@ -83,7 +96,7 @@ export default function SummaryPage() {
       if (month !== "All" && d.getMonth() !== month) return;
       if (d.getFullYear() !== year) return;
 
-      const row = rows.find(r => r.member === l.memberName);
+      const row = rows.find(r => r.member === l.member);
       if (!row) return;
 
       row.totals[l.leaveType] += l.ptoDays;
@@ -93,7 +106,7 @@ export default function SummaryPage() {
     return rows.sort((a, b) =>
       a.member.localeCompare(b.member)
     );
-  }, [leaves, members, leaveTypes, month, year, approvalMap]);
+  }, [leaves, members, leaveTypes, month, year, approvalMap, memberOrgMap]);
 
   const years = Array.from(
     new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
@@ -140,6 +153,7 @@ export default function SummaryPage() {
         <thead>
           <tr className="bg-gray-100">
             <th className="border p-2 text-left">Member</th>
+            <th className="border p-2 text-left">Organization</th> {/* ✅ NEW */}
             {leaveTypes.map(t => (
               <th key={t} className="border p-2 text-center">
                 {t}
@@ -157,6 +171,10 @@ export default function SummaryPage() {
             <tr key={row.member}>
               <td className="border p-2 text-left">
                 {row.member}
+              </td>
+
+              <td className="border p-2 text-left">
+                {row.organization}
               </td>
 
               {leaveTypes.map(t => (
@@ -194,7 +212,7 @@ export default function SummaryPage() {
           {summary.length === 0 && (
             <tr>
               <td
-                colSpan={leaveTypes.length + 3}
+                colSpan={leaveTypes.length + 4} {/* ✅ UPDATED */}
                 className="text-center p-4 text-gray-500"
               >
                 No data for selected period
