@@ -2,74 +2,55 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Leave } from "@/lib/types";
-import { getData, saveData } from "@/lib/storage";
+import { getData } from "@/lib/storage";
 
 const months = [
   "January","February","March","April","May","June",
   "July","August","September","October","November","December"
 ];
 
-type ApprovalStatus = "Approved" | "Pending";
+type Member = {
+  id: string;
+  name: string;
+  organization?: string;
+  location?: string;
+};
 
 type SummaryRow = {
   member: string;
+  organization: string;
   totals: Record<string, number>;
   total: number;
-  approvalStatus: ApprovalStatus;
 };
 
 export default function SummaryPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
-  const [members, setMembers] = useState<string[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
-  const [approvalMap, setApprovalMap] =
-    useState<Record<string, ApprovalStatus>>({});
 
   const [month, setMonth] = useState<number | "All">(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    setLeaves((getData("leaves") as Leave[]) || []);
-
-    setMembers(
-      ((getData("members") as any[]) || []).map(m => m.name)
-    );
-
-    setLeaveTypes(
-      ((getData("leaveTypes") as any[]) || []).map(t => t.name)
-    );
-
-    const raw = getData("approvalStatus");
-    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-      setApprovalMap(raw as Record<string, ApprovalStatus>);
-    } else {
-      setApprovalMap({});
-    }
+    setLeaves(getData("leaves"));
+    setMembers((getData("members") as Member[]) || []);
+    setLeaveTypes((getData<any>("leaveTypes") || []).map(t => t.name));
   }, []);
 
-  const approvalKey = (member: string) =>
-    `${year}-${month}-${member}`;
-
-  const updateApproval = (member: string, status: ApprovalStatus) => {
-    const key = approvalKey(member);
-    const updated: Record<string, ApprovalStatus> = {
-      ...approvalMap,
-      [key]: status,
-    };
-
-    setApprovalMap(updated);
-
-    // ✅ Cast ONLY at persistence boundary
-    saveData("approvalStatus", updated as unknown as any[]);
-  };
+  const memberOrgMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    members.forEach(m => {
+      map[m.name] = m.organization || "—";
+    });
+    return map;
+  }, [members]);
 
   const summary = useMemo<SummaryRow[]>(() => {
-    const rows: SummaryRow[] = members.map(member => ({
-      member,
+    const rows: SummaryRow[] = members.map(m => ({
+      member: m.name,
+      organization: m.organization || "—",
       totals: {},
       total: 0,
-      approvalStatus:
-        approvalMap[approvalKey(member)] || "Pending",
     }));
 
     rows.forEach(row => {
@@ -80,6 +61,7 @@ export default function SummaryPage() {
       if (l.status !== "Confirmed") return;
 
       const d = new Date(l.startDate);
+
       if (month !== "All" && d.getMonth() !== month) return;
       if (d.getFullYear() !== year) return;
 
@@ -90,10 +72,11 @@ export default function SummaryPage() {
       row.total += l.ptoDays;
     });
 
+    // Sort by member name (A → Z)
     return rows.sort((a, b) =>
       a.member.localeCompare(b.member)
     );
-  }, [leaves, members, leaveTypes, month, year, approvalMap]);
+  }, [leaves, members, leaveTypes, month, year]);
 
   const years = Array.from(
     new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
@@ -140,15 +123,13 @@ export default function SummaryPage() {
         <thead>
           <tr className="bg-gray-100">
             <th className="border p-2 text-left">Member</th>
+            <th className="border p-2 text-left">Organization</th>
             {leaveTypes.map(t => (
               <th key={t} className="border p-2 text-center">
                 {t}
               </th>
             ))}
             <th className="border p-2 text-center">Total</th>
-            <th className="border p-2 text-center">
-              Approval Status
-            </th>
           </tr>
         </thead>
 
@@ -157,6 +138,9 @@ export default function SummaryPage() {
             <tr key={row.member}>
               <td className="border p-2 text-left">
                 {row.member}
+              </td>
+              <td className="border p-2 text-left">
+                {row.organization}
               </td>
 
               {leaveTypes.map(t => (
@@ -167,26 +151,6 @@ export default function SummaryPage() {
 
               <td className="border p-2 text-center font-semibold">
                 {row.total}
-              </td>
-
-              <td className="border p-2 text-center">
-                <select
-                  value={row.approvalStatus}
-                  onChange={e =>
-                    updateApproval(
-                      row.member,
-                      e.target.value as ApprovalStatus
-                    )
-                  }
-                  className={`px-2 py-1 rounded text-sm font-medium ${
-                    row.approvalStatus === "Approved"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="Approved">Approved</option>
-                </select>
               </td>
             </tr>
           ))}
