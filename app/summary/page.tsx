@@ -38,6 +38,7 @@ export default function SummaryPage() {
 
     const rawMembers = (getData("members") as any[]) || [];
 
+    // Existing behavior
     setMembers(rawMembers.map(m => m.name));
 
     // ✅ Build organization lookup
@@ -96,7 +97,7 @@ export default function SummaryPage() {
       if (month !== "All" && d.getMonth() !== month) return;
       if (d.getFullYear() !== year) return;
 
-      const row = rows.find(r => r.member === l.member);
+      const row = rows.find(r => r.member === l.memberName);
       if (!row) return;
 
       row.totals[l.leaveType] += l.ptoDays;
@@ -212,7 +213,7 @@ export default function SummaryPage() {
           {summary.length === 0 && (
             <tr>
               <td
-                colSpan={leaveTypes.length + 4} {/* ✅ UPDATED */}
+                colSpan={leaveTypes.length + 4} // ✅ UPDATED
                 className="text-center p-4 text-gray-500"
               >
                 No data for selected period
