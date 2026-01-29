@@ -26,7 +26,7 @@ function getWorkingDaysInMonth(year: number, month: number): number {
 
   while (date.getMonth() === month) {
     const day = date.getDay();
-    if (day !== 0 && day !== 6) count++; // Exclude Sun (0) & Sat (6)
+    if (day !== 0 && day !== 6) count++;
     date.setDate(date.getDate() + 1);
   }
   return count;
@@ -40,6 +40,10 @@ export default function SummaryPage() {
     useState<Record<string, ApprovalStatus>>({});
   const [memberOrgMap, setMemberOrgMap] =
     useState<Record<string, string>>({});
+
+  // 🔹 NEW FILTER STATES
+  const [orgFilter, setOrgFilter] = useState("All");
+  const [approvalFilter, setApprovalFilter] = useState<"All" | ApprovalStatus>("All");
 
   const [month, setMonth] = useState<number | "All">(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
@@ -123,9 +127,14 @@ export default function SummaryPage() {
       }
     });
 
-    return rows.sort((a, b) =>
-      a.member.localeCompare(b.member)
-    );
+    return rows
+      .filter(r =>
+        orgFilter === "All" || r.organization === orgFilter
+      )
+      .filter(r =>
+        approvalFilter === "All" || r.approvalStatus === approvalFilter
+      )
+      .sort((a, b) => a.member.localeCompare(b.member));
   }, [
     leaves,
     members,
@@ -135,10 +144,16 @@ export default function SummaryPage() {
     approvalMap,
     memberOrgMap,
     workingDays,
+    orgFilter,
+    approvalFilter,
   ]);
 
   const years = Array.from(
     new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
+  ).sort();
+
+  const organizations = Array.from(
+    new Set(Object.values(memberOrgMap))
   ).sort();
 
   return (
@@ -148,7 +163,7 @@ export default function SummaryPage() {
       </h2>
 
       {/* Filters */}
-      <div className="flex gap-4 mb-6">
+      <div className="flex flex-wrap gap-4 mb-6">
         <select
           className="border px-3 py-2 rounded text-sm"
           value={month}
@@ -175,9 +190,34 @@ export default function SummaryPage() {
             <option key={y}>{y}</option>
           ))}
         </select>
+
+        {/* NEW: Organization Filter */}
+        <select
+          className="border px-3 py-2 rounded text-sm"
+          value={orgFilter}
+          onChange={e => setOrgFilter(e.target.value)}
+        >
+          <option value="All">All Organizations</option>
+          {organizations.map(o => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+
+        {/* NEW: Approval Status Filter */}
+        <select
+          className="border px-3 py-2 rounded text-sm"
+          value={approvalFilter}
+          onChange={e =>
+            setApprovalFilter(e.target.value as "All" | ApprovalStatus)
+          }
+        >
+          <option value="All">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Approved">Approved</option>
+        </select>
       </div>
 
-      {/* Working Days Info */}
+      {/* Working Days */}
       {workingDays !== null && (
         <div className="mb-4 text-sm text-gray-700">
           <strong>Total Working Days:</strong> {workingDays}
@@ -196,25 +236,16 @@ export default function SummaryPage() {
               </th>
             ))}
             <th className="border p-2 text-center">Total Leaves</th>
-            <th className="border p-2 text-center">
-              Effective Work Days
-            </th>
-            <th className="border p-2 text-center">
-              Approval Status
-            </th>
+            <th className="border p-2 text-center">Effective Work Days</th>
+            <th className="border p-2 text-center">Approval Status</th>
           </tr>
         </thead>
 
         <tbody>
           {summary.map(row => (
             <tr key={row.member}>
-              <td className="border p-2 text-left">
-                {row.member}
-              </td>
-
-              <td className="border p-2 text-left">
-                {row.organization}
-              </td>
+              <td className="border p-2 text-left">{row.member}</td>
+              <td className="border p-2 text-left">{row.organization}</td>
 
               {leaveTypes.map(t => (
                 <td key={t} className="border p-2 text-center">
@@ -258,7 +289,7 @@ export default function SummaryPage() {
                 colSpan={leaveTypes.length + 5}
                 className="text-center p-4 text-gray-500"
               >
-                No data for selected period
+                No data for selected filters
               </td>
             </tr>
           )}
