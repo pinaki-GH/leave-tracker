@@ -13,11 +13,24 @@ type ApprovalStatus = "Approved" | "Pending";
 
 type SummaryRow = {
   member: string;
-  organization: string; // ✅ NEW
+  organization: string;
   totals: Record<string, number>;
-  total: number;
+  totalLeaves: number;
+  effectiveWorkDays: number | null;
   approvalStatus: ApprovalStatus;
 };
+
+function getWorkingDaysInMonth(year: number, month: number): number {
+  let count = 0;
+  const date = new Date(year, month, 1);
+
+  while (date.getMonth() === month) {
+    const day = date.getDay();
+    if (day !== 0 && day !== 6) count++; // Exclude Sun (0) & Sat (6)
+    date.setDate(date.getDate() + 1);
+  }
+  return count;
+}
 
 export default function SummaryPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
@@ -25,8 +38,6 @@ export default function SummaryPage() {
   const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
   const [approvalMap, setApprovalMap] =
     useState<Record<string, ApprovalStatus>>({});
-
-  // ✅ NEW: member → organization map
   const [memberOrgMap, setMemberOrgMap] =
     useState<Record<string, string>>({});
 
@@ -37,11 +48,8 @@ export default function SummaryPage() {
     setLeaves((getData("leaves") as Leave[]) || []);
 
     const rawMembers = (getData("members") as any[]) || [];
-
-    // Existing behavior
     setMembers(rawMembers.map(m => m.name));
 
-    // ✅ Build organization lookup
     const orgMap: Record<string, string> = {};
     rawMembers.forEach(m => {
       orgMap[m.name] = m.organization || "—";
@@ -71,17 +79,19 @@ export default function SummaryPage() {
     };
 
     setApprovalMap(updated);
-
-    // ✅ Cast ONLY at persistence boundary
     saveData("approvalStatus", updated as unknown as any[]);
   };
+
+  const workingDays =
+    month === "All" ? null : getWorkingDaysInMonth(year, month);
 
   const summary = useMemo<SummaryRow[]>(() => {
     const rows: SummaryRow[] = members.map(member => ({
       member,
-      organization: memberOrgMap[member] || "—", // ✅ NEW
+      organization: memberOrgMap[member] || "—",
       totals: {},
-      total: 0,
+      totalLeaves: 0,
+      effectiveWorkDays: null,
       approvalStatus:
         approvalMap[approvalKey(member)] || "Pending",
     }));
@@ -101,13 +111,31 @@ export default function SummaryPage() {
       if (!row) return;
 
       row.totals[l.leaveType] += l.ptoDays;
-      row.total += l.ptoDays;
+      row.totalLeaves += l.ptoDays;
+    });
+
+    rows.forEach(r => {
+      if (workingDays !== null) {
+        r.effectiveWorkDays = Math.max(
+          workingDays - r.totalLeaves,
+          0
+        );
+      }
     });
 
     return rows.sort((a, b) =>
       a.member.localeCompare(b.member)
     );
-  }, [leaves, members, leaveTypes, month, year, approvalMap, memberOrgMap]);
+  }, [
+    leaves,
+    members,
+    leaveTypes,
+    month,
+    year,
+    approvalMap,
+    memberOrgMap,
+    workingDays,
+  ]);
 
   const years = Array.from(
     new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
@@ -149,18 +177,28 @@ export default function SummaryPage() {
         </select>
       </div>
 
+      {/* Working Days Info */}
+      {workingDays !== null && (
+        <div className="mb-4 text-sm text-gray-700">
+          <strong>Total Working Days:</strong> {workingDays}
+        </div>
+      )}
+
       {/* Summary Table */}
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-gray-100">
             <th className="border p-2 text-left">Member</th>
-            <th className="border p-2 text-left">Organization</th> {/* ✅ NEW */}
+            <th className="border p-2 text-left">Organization</th>
             {leaveTypes.map(t => (
               <th key={t} className="border p-2 text-center">
                 {t}
               </th>
             ))}
-            <th className="border p-2 text-center">Total</th>
+            <th className="border p-2 text-center">Total Leaves</th>
+            <th className="border p-2 text-center">
+              Effective Work Days
+            </th>
             <th className="border p-2 text-center">
               Approval Status
             </th>
@@ -185,7 +223,11 @@ export default function SummaryPage() {
               ))}
 
               <td className="border p-2 text-center font-semibold">
-                {row.total}
+                {row.totalLeaves}
+              </td>
+
+              <td className="border p-2 text-center font-semibold">
+                {row.effectiveWorkDays ?? "—"}
               </td>
 
               <td className="border p-2 text-center">
@@ -213,7 +255,7 @@ export default function SummaryPage() {
           {summary.length === 0 && (
             <tr>
               <td
-                colSpan={leaveTypes.length + 4} // ✅ UPDATED
+                colSpan={leaveTypes.length + 5}
                 className="text-center p-4 text-gray-500"
               >
                 No data for selected period
