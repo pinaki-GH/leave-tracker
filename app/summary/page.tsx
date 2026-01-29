@@ -33,6 +33,8 @@ function getWorkingDaysInMonth(year: number, month: number): number {
 }
 
 export default function SummaryPage() {
+  const now = new Date();
+
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [members, setMembers] = useState<string[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
@@ -41,12 +43,12 @@ export default function SummaryPage() {
   const [memberOrgMap, setMemberOrgMap] =
     useState<Record<string, string>>({});
 
-  // 🔹 NEW FILTER STATES
+  // 🔹 Filters
+  const [month, setMonth] = useState<number | "All">(now.getMonth());
+  const [year, setYear] = useState(now.getFullYear());
   const [orgFilter, setOrgFilter] = useState("All");
-  const [approvalFilter, setApprovalFilter] = useState<"All" | ApprovalStatus>("All");
-
-  const [month, setMonth] = useState<number | "All">(new Date().getMonth());
-  const [year, setYear] = useState(new Date().getFullYear());
+  const [approvalFilter, setApprovalFilter] =
+    useState<"All" | ApprovalStatus>("All");
 
   useEffect(() => {
     setLeaves((getData("leaves") as Leave[]) || []);
@@ -84,6 +86,14 @@ export default function SummaryPage() {
 
     setApprovalMap(updated);
     saveData("approvalStatus", updated as unknown as any[]);
+  };
+
+  const clearFilters = () => {
+    const now = new Date();
+    setMonth(now.getMonth());
+    setYear(now.getFullYear());
+    setOrgFilter("All");
+    setApprovalFilter("All");
   };
 
   const workingDays =
@@ -163,7 +173,7 @@ export default function SummaryPage() {
       </h2>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-6">
+      <div className="flex flex-wrap items-end gap-4 mb-6">
         <select
           className="border px-3 py-2 rounded text-sm"
           value={month}
@@ -191,7 +201,6 @@ export default function SummaryPage() {
           ))}
         </select>
 
-        {/* NEW: Organization Filter */}
         <select
           className="border px-3 py-2 rounded text-sm"
           value={orgFilter}
@@ -203,7 +212,6 @@ export default function SummaryPage() {
           ))}
         </select>
 
-        {/* NEW: Approval Status Filter */}
         <select
           className="border px-3 py-2 rounded text-sm"
           value={approvalFilter}
@@ -215,6 +223,14 @@ export default function SummaryPage() {
           <option value="Pending">Pending</option>
           <option value="Approved">Approved</option>
         </select>
+
+        {/* Clear Filter */}
+        <button
+          onClick={clearFilters}
+          className="ml-auto bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded text-sm"
+        >
+          Clear Filters
+        </button>
       </div>
 
       {/* Working Days */}
