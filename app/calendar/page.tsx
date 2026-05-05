@@ -6,6 +6,13 @@ import { Leave } from "@/lib/types";
 import { getData, saveData } from "@/lib/storage";
 import { exportLeavesToExcel } from "@/lib/exportToExcel";
 
+type Holiday = {
+  id: string;
+  location: string;
+  date: string;
+  name: string;
+};
+
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const months = [
   "January","February","March","April","May","June",
@@ -14,6 +21,7 @@ const months = [
 
 export default function CalendarPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
 
   const now = new Date();
@@ -27,7 +35,8 @@ export default function CalendarPage() {
   const [selectedStatus, setSelectedStatus] = useState("All");
 
   useEffect(() => {
-    setLeaves(getData("leaves"));
+    setLeaves(getData("leaves") || []);
+    setHolidays(getData("companyHolidays") || []);
   }, []);
 
   /* ---------- CRUD ---------- */
@@ -127,6 +136,27 @@ export default function CalendarPage() {
 
     return map;
   }, [filteredLeaves, month, year]);
+
+  /* ---------- NEW: Holidays Mapping ---------- */
+
+  const holidaysByDate = useMemo(() => {
+    const map: Record<number, Holiday[]> = {};
+
+    holidays.forEach(h => {
+      const d = new Date(h.date);
+
+      if (
+        d.getMonth() === month &&
+        d.getFullYear() === year
+      ) {
+        const day = d.getDate();
+        map[day] = map[day] || [];
+        map[day].push(h);
+      }
+    });
+
+    return map;
+  }, [holidays, month, year]);
 
   /* ---------- Filter Options ---------- */
 
@@ -247,6 +277,17 @@ export default function CalendarPage() {
                 <>
                   <div className="font-semibold mb-1">{day}</div>
 
+                  {/* 🎉 Holidays */}
+                  {(holidaysByDate[day] || []).map(h => (
+                    <div
+                      key={h.id}
+                      className="mb-1 px-2 py-1 rounded text-xs bg-red-100 text-red-700"
+                    >
+                      🎉 {h.name} ({h.location})
+                    </div>
+                  ))}
+
+                  {/* Leaves */}
                   {(leavesByDate[day] || []).map(l => (
                     <div
                       key={`${l.id}-${day}`}
