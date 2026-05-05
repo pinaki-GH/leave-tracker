@@ -8,6 +8,7 @@ import { exportLeavesToExcel } from "@/lib/exportToExcel";
 
 type Holiday = {
   id: string;
+  organization: string; // ✅ ADDED
   location: string;
   date: string;
   name: string;
@@ -15,6 +16,7 @@ type Holiday = {
 
 type Member = {
   name: string;
+  organization: string; // ✅ ADDED
   location: string;
 };
 
@@ -42,7 +44,16 @@ export default function CalendarPage() {
 
   useEffect(() => {
     setLeaves(getData("leaves") || []);
-    setHolidays(getData("companyHolidays") || []);
+
+    // ✅ backward safe load
+    const storedHolidays = (getData("companyHolidays") as any[]) || [];
+    setHolidays(
+      storedHolidays.map(h => ({
+        ...h,
+        organization: h.organization || "",
+      }))
+    );
+
     setMembersData(getData("members") || []);
   }, []);
 
@@ -85,7 +96,11 @@ export default function CalendarPage() {
       if (d.getFullYear() !== year) return;
 
       membersData.forEach(m => {
-        if (m.location !== h.location) return;
+        // ✅ UPDATED MATCHING LOGIC
+        if (
+          m.location !== h.location ||
+          m.organization !== h.organization
+        ) return;
 
         result.push({
           id: `holiday-${h.id}-${m.name}`,
@@ -218,53 +233,25 @@ export default function CalendarPage() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-4 mb-6">
-          <select
-            className="border px-3 py-2 rounded text-sm"
-            value={month}
-            onChange={e => setMonth(+e.target.value)}
-          >
-            {months.map((m, i) => (
-              <option key={m} value={i}>{m}</option>
-            ))}
+          <select className="border px-3 py-2 rounded text-sm" value={month} onChange={e => setMonth(+e.target.value)}>
+            {months.map((m, i) => <option key={m} value={i}>{m}</option>)}
           </select>
 
-          <select
-            className="border px-3 py-2 rounded text-sm"
-            value={year}
-            onChange={e => setYear(+e.target.value)}
-          >
-            {years.map(y => (
-              <option key={y}>{y}</option>
-            ))}
+          <select className="border px-3 py-2 rounded text-sm" value={year} onChange={e => setYear(+e.target.value)}>
+            {years.map(y => <option key={y}>{y}</option>)}
           </select>
 
-          <select
-            className="border px-3 py-2 rounded text-sm"
-            value={selectedMember}
-            onChange={e => setSelectedMember(e.target.value)}
-          >
+          <select className="border px-3 py-2 rounded text-sm" value={selectedMember} onChange={e => setSelectedMember(e.target.value)}>
             <option value="All">All Members</option>
-            {members.map(m => (
-              <option key={m}>{m}</option>
-            ))}
+            {members.map(m => <option key={m}>{m}</option>)}
           </select>
 
-          <select
-            className="border px-3 py-2 rounded text-sm"
-            value={selectedLeaveType}
-            onChange={e => setSelectedLeaveType(e.target.value)}
-          >
+          <select className="border px-3 py-2 rounded text-sm" value={selectedLeaveType} onChange={e => setSelectedLeaveType(e.target.value)}>
             <option value="All">All Leave Types</option>
-            {leaveTypes.map(t => (
-              <option key={t}>{t}</option>
-            ))}
+            {leaveTypes.map(t => <option key={t}>{t}</option>)}
           </select>
 
-          <select
-            className="border px-3 py-2 rounded text-sm"
-            value={selectedStatus}
-            onChange={e => setSelectedStatus(e.target.value)}
-          >
+          <select className="border px-3 py-2 rounded text-sm" value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}>
             <option value="All">All Status</option>
             <option value="Planned">Planned</option>
             <option value="Confirmed">Confirmed</option>
@@ -272,27 +259,17 @@ export default function CalendarPage() {
 
           <div className="flex-1" />
 
-          <button
-            onClick={clearFilters}
-            className="border px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-100"
-          >
+          <button onClick={clearFilters} className="border px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-100">
             Clear Filters
           </button>
         </div>
 
         {/* Calendar */}
         <div className="grid grid-cols-7 gap-2">
-          {daysOfWeek.map(d => (
-            <div key={d} className="font-semibold text-center">
-              {d}
-            </div>
-          ))}
+          {daysOfWeek.map(d => <div key={d} className="font-semibold text-center">{d}</div>)}
 
           {calendarDays.map((day, idx) => (
-            <div
-              key={idx}
-              className="border rounded min-h-[120px] p-1 text-sm"
-            >
+            <div key={idx} className="border rounded min-h-[120px] p-1 text-sm">
               {day && (
                 <>
                   <div className="font-semibold mb-1">{day}</div>
@@ -308,12 +285,10 @@ export default function CalendarPage() {
                           : "bg-yellow-100 text-yellow-700"
                       }`}
                     >
-                      <div className="font-medium">
-                        {l.memberName}
-                      </div>
+                      <div className="font-medium">{l.memberName}</div>
                       <div>{l.leaveType}</div>
 
-                      {l.leaveType !== "Company Holiday" && (
+                      {!l.id.startsWith("holiday-") && (
                         <button
                           className="text-blue-600 underline mt-1"
                           onClick={() => setEditingLeave(l)}
