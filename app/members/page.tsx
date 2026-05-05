@@ -19,6 +19,7 @@ type LeaveType = {
 
 type Holiday = {
   id: string;
+  organization: string; // ✅ ADDED
   location: string;
   date: string;
   name: string;
@@ -50,6 +51,7 @@ export default function MembersPage() {
   const [newHolidayName, setNewHolidayName] = useState("");
   const [newHolidayDate, setNewHolidayDate] = useState("");
   const [newHolidayLocation, setNewHolidayLocation] = useState("");
+  const [newHolidayOrg, setNewHolidayOrg] = useState(""); // ✅ ADDED
 
   const [editingHolidayId, setEditingHolidayId] = useState<string | null>(null);
   const [editHoliday, setEditHoliday] = useState<Partial<Holiday>>({});
@@ -68,7 +70,15 @@ export default function MembersPage() {
     );
 
     setLeaveTypes((getData("leaveTypes") as LeaveType[]) || []);
-    setHolidays((getData("companyHolidays") as Holiday[]) || []);
+
+    // ✅ UPDATED (backward safe)
+    const storedHolidays = (getData("companyHolidays") as any[]) || [];
+    setHolidays(
+      storedHolidays.map(h => ({
+        ...h,
+        organization: h.organization || "",
+      }))
+    );
   }, []);
 
   /* ---------- Save Helpers ---------- */
@@ -176,7 +186,7 @@ export default function MembersPage() {
   /* ================= HOLIDAYS ================= */
 
   const addHoliday = () => {
-    if (!newHolidayName || !newHolidayDate || !newHolidayLocation) return;
+    if (!newHolidayName || !newHolidayDate || !newHolidayLocation || !newHolidayOrg) return; // ✅ UPDATED
 
     saveHolidays([
       ...holidays,
@@ -185,12 +195,14 @@ export default function MembersPage() {
         name: newHolidayName,
         date: newHolidayDate,
         location: newHolidayLocation,
+        organization: newHolidayOrg, // ✅ ADDED
       },
     ]);
 
     setNewHolidayName("");
     setNewHolidayDate("");
     setNewHolidayLocation("");
+    setNewHolidayOrg(""); // ✅ RESET
   };
 
   const updateHoliday = () => {
@@ -204,6 +216,7 @@ export default function MembersPage() {
               name: editHoliday.name || "",
               date: editHoliday.date || "",
               location: editHoliday.location || "",
+              organization: editHoliday.organization || "", // ✅ ADDED
             }
           : h
       )
@@ -320,9 +333,18 @@ export default function MembersPage() {
         <div className="bg-white p-6 rounded shadow">
           <h2 className="font-bold mb-4">Company Holidays</h2>
 
-          <div className="grid md:grid-cols-3 gap-2 mb-4">
+          <div className="grid md:grid-cols-4 gap-2 mb-4"> {/* ✅ UPDATED */}
             <input placeholder="Holiday Name" value={newHolidayName} onChange={e=>setNewHolidayName(e.target.value)} className="border p-2"/>
             <input type="date" value={newHolidayDate} onChange={e=>setNewHolidayDate(e.target.value)} className="border p-2"/>
+
+            {/* ✅ NEW FIELD */}
+            <input
+              placeholder="Organization"
+              value={newHolidayOrg}
+              onChange={e => setNewHolidayOrg(e.target.value)}
+              className="border p-2"
+            />
+
             <input placeholder="Location" value={newHolidayLocation} onChange={e=>setNewHolidayLocation(e.target.value)} className="border p-2"/>
           </div>
 
@@ -336,12 +358,13 @@ export default function MembersPage() {
                 <>
                   <input value={editHoliday.name||""} onChange={e=>setEditHoliday({...editHoliday,name:e.target.value})}/>
                   <input type="date" value={editHoliday.date||""} onChange={e=>setEditHoliday({...editHoliday,date:e.target.value})}/>
+                  <input value={editHoliday.organization||""} onChange={e=>setEditHoliday({...editHoliday,organization:e.target.value})}/>
                   <input value={editHoliday.location||""} onChange={e=>setEditHoliday({...editHoliday,location:e.target.value})}/>
                   <button onClick={updateHoliday}>Save</button>
                 </>
               ) : (
                 <>
-                  <div>{h.name} - {h.date} ({h.location})</div>
+                  <div>{h.name} - {h.date} ({h.organization} / {h.location})</div> {/* ✅ UPDATED */}
                   <div>
                     <button onClick={()=>{setEditingHolidayId(h.id);setEditHoliday(h)}}>Edit</button>
                     <button onClick={()=>deleteHoliday(h.id)}>Delete</button>
