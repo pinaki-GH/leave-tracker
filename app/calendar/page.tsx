@@ -14,9 +14,7 @@ type Holiday = {
 };
 
 type Member = {
-  id: string;
   name: string;
-  organization: string;
   location: string;
 };
 
@@ -75,18 +73,45 @@ export default function CalendarPage() {
     setSelectedStatus("All");
   };
 
-  /* ---------- Get Member Location ---------- */
+  /* ---------- VIRTUAL HOLIDAY LEAVES ---------- */
 
-  const selectedMemberLocation = useMemo(() => {
-    if (selectedMember === "All") return null;
-    const member = membersData.find(m => m.name === selectedMember);
-    return member?.location || null;
-  }, [selectedMember, membersData]);
+  const holidayLeaves: Leave[] = useMemo(() => {
+    const result: Leave[] = [];
+
+    holidays.forEach(h => {
+      const d = new Date(h.date);
+
+      if (d.getMonth() !== month) return;
+      if (d.getFullYear() !== year) return;
+
+      membersData.forEach(m => {
+        if (m.location !== h.location) return;
+
+        result.push({
+          id: `holiday-${h.id}-${m.name}`,
+          memberName: m.name,
+          leaveType: "Company Holiday",
+          ptoDays: 1,
+          startDate: h.date,
+          endDate: h.date,
+          status: "Confirmed",
+        });
+      });
+    });
+
+    return result;
+  }, [holidays, membersData, month, year]);
+
+  /* ---------- MERGE LEAVES ---------- */
+
+  const allLeaves = useMemo(() => {
+    return [...leaves, ...holidayLeaves];
+  }, [leaves, holidayLeaves]);
 
   /* ---------- Filtered Leaves ---------- */
 
   const filteredLeaves = useMemo(() => {
-    return leaves.filter(l => {
+    return allLeaves.filter(l => {
       const d = new Date(l.startDate);
 
       if (d.getMonth() !== month) return false;
@@ -101,7 +126,7 @@ export default function CalendarPage() {
       return true;
     });
   }, [
-    leaves,
+    allLeaves,
     month,
     year,
     selectedMember,
@@ -125,8 +150,6 @@ export default function CalendarPage() {
     return days;
   }, [month, year]);
 
-  /* ---------- Leaves Mapping ---------- */
-
   const leavesByDate = useMemo(() => {
     const map: Record<number, Leave[]> = {};
 
@@ -134,7 +157,11 @@ export default function CalendarPage() {
       const start = new Date(l.startDate);
       const end = new Date(l.endDate);
 
-      const current = new Date(start);
+      const current = new Date(
+        start.getFullYear(),
+        start.getMonth(),
+        start.getDate()
+      );
 
       while (current <= end) {
         if (
@@ -152,47 +179,18 @@ export default function CalendarPage() {
     return map;
   }, [filteredLeaves, month, year]);
 
-  /* ---------- Holidays Mapping (UPDATED) ---------- */
-
-  const holidaysByDate = useMemo(() => {
-    const map: Record<number, Holiday[]> = {};
-
-    holidays.forEach(h => {
-      const d = new Date(h.date);
-
-      if (
-        d.getMonth() === month &&
-        d.getFullYear() === year
-      ) {
-        // 🎯 FILTER BY MEMBER LOCATION
-        if (
-          selectedMemberLocation &&
-          h.location !== selectedMemberLocation
-        ) {
-          return;
-        }
-
-        const day = d.getDate();
-        map[day] = map[day] || [];
-        map[day].push(h);
-      }
-    });
-
-    return map;
-  }, [holidays, month, year, selectedMemberLocation]);
-
   /* ---------- Filter Options ---------- */
 
   const members = Array.from(
-    new Set(leaves.map(l => l.memberName))
+    new Set(allLeaves.map(l => l.memberName))
   ).sort((a, b) => a.localeCompare(b));
 
   const leaveTypes = Array.from(
-    new Set(leaves.map(l => l.leaveType))
+    new Set(allLeaves.map(l => l.leaveType))
   );
 
   const years = Array.from(
-    new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
+    new Set(allLeaves.map(l => new Date(l.startDate).getFullYear()))
   ).sort();
 
   /* ---------- UI ---------- */
@@ -211,7 +209,7 @@ export default function CalendarPage() {
           <h2 className="text-lg font-bold">Calendar View</h2>
           <div className="flex-1" />
           <button
-            onClick={() => exportLeavesToExcel(leaves)}
+            onClick={() => exportLeavesToExcel(allLeaves)}
             className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
           >
             Export to Excel
@@ -299,39 +297,30 @@ export default function CalendarPage() {
                 <>
                   <div className="font-semibold mb-1">{day}</div>
 
-                  {/* Leaves */}
                   {(leavesByDate[day] || []).map(l => (
                     <div
                       key={`${l.id}-${day}`}
-                      className={`mb-1 px-2 py-1 rounded text-xs border ${
-                        l.status === "Confirmed"
-                          ? "bg-green-100 text-green-700 border-green-300"
-                          : "bg-yellow-100 text-yellow-700 border-yellow-300"
+                      className={`mb-1 px-2 py-1 rounded text-xs ${
+                        l.leaveType === "Company Holiday"
+                          ? "bg-red-100 text-red-700"
+                          : l.status === "Confirmed"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-yellow-100 text-yellow-700"
                       }`}
                     >
-                      <div className="font-semibold">
+                      <div className="font-medium">
                         {l.memberName}
                       </div>
-                      <div className="text-[11px]">
-                        {l.leaveType}
-                      </div>
+                      <div>{l.leaveType}</div>
 
-                      <button
-                        className="text-blue-600 underline text-[11px] mt-1"
-                        onClick={() => setEditingLeave(l)}
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  ))}
-
-                  {/* Holidays */}
-                  {(holidaysByDate[day] || []).map(h => (
-                    <div
-                      key={h.id}
-                      className="mb-1 px-2 py-1 rounded text-[11px] bg-red-50 text-red-600 border border-red-200"
-                    >
-                      🎉 {h.name}
+                      {l.leaveType !== "Company Holiday" && (
+                        <button
+                          className="text-blue-600 underline mt-1"
+                          onClick={() => setEditingLeave(l)}
+                        >
+                          Edit
+                        </button>
+                      )}
                     </div>
                   ))}
                 </>
