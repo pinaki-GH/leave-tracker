@@ -137,7 +137,7 @@ export default function CalendarPage() {
     return map;
   }, [filteredLeaves, month, year]);
 
-  /* ---------- NEW: Holidays Mapping ---------- */
+  /* ---------- Holidays Mapping ---------- */
 
   const holidaysByDate = useMemo(() => {
     const map: Record<number, Holiday[]> = {};
@@ -277,37 +277,39 @@ export default function CalendarPage() {
                 <>
                   <div className="font-semibold mb-1">{day}</div>
 
-                  {/* 🎉 Holidays */}
-                  {(holidaysByDate[day] || []).map(h => (
-                    <div
-                      key={h.id}
-                      className="mb-1 px-2 py-1 rounded text-xs bg-red-100 text-red-700"
-                    >
-                      🎉 {h.name} ({h.location})
-                    </div>
-                  ))}
-
-                  {/* Leaves */}
+                  {/* Leaves FIRST (PRIMARY) */}
                   {(leavesByDate[day] || []).map(l => (
                     <div
                       key={`${l.id}-${day}`}
-                      className={`mb-1 px-2 py-1 rounded text-xs ${
+                      className={`mb-1 px-2 py-1 rounded text-xs border ${
                         l.status === "Confirmed"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-yellow-100 text-yellow-700"
+                          ? "bg-green-100 text-green-700 border-green-300"
+                          : "bg-yellow-100 text-yellow-700 border-yellow-300"
                       }`}
                     >
-                      <div className="font-medium">
+                      <div className="font-semibold">
                         {l.memberName}
                       </div>
-                      <div>{l.leaveType}</div>
+                      <div className="text-[11px]">
+                        {l.leaveType}
+                      </div>
 
                       <button
-                        className="text-blue-600 underline mt-1"
+                        className="text-blue-600 underline text-[11px] mt-1"
                         onClick={() => setEditingLeave(l)}
                       >
                         Edit
                       </button>
+                    </div>
+                  ))}
+
+                  {/* Holidays SECONDARY */}
+                  {(holidaysByDate[day] || []).map(h => (
+                    <div
+                      key={h.id}
+                      className="mb-1 px-2 py-1 rounded text-[11px] bg-red-50 text-red-600 border border-red-200"
+                    >
+                      🎉 {h.name}
                     </div>
                   ))}
                 </>
