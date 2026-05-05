@@ -13,6 +13,13 @@ type Holiday = {
   name: string;
 };
 
+type Member = {
+  id: string;
+  name: string;
+  organization: string;
+  location: string;
+};
+
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const months = [
   "January","February","March","April","May","June",
@@ -22,6 +29,7 @@ const months = [
 export default function CalendarPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [membersData, setMembersData] = useState<Member[]>([]);
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
 
   const now = new Date();
@@ -37,6 +45,7 @@ export default function CalendarPage() {
   useEffect(() => {
     setLeaves(getData("leaves") || []);
     setHolidays(getData("companyHolidays") || []);
+    setMembersData(getData("members") || []);
   }, []);
 
   /* ---------- CRUD ---------- */
@@ -65,6 +74,14 @@ export default function CalendarPage() {
     setSelectedLeaveType("All");
     setSelectedStatus("All");
   };
+
+  /* ---------- Get Member Location ---------- */
+
+  const selectedMemberLocation = useMemo(() => {
+    if (selectedMember === "All") return null;
+    const member = membersData.find(m => m.name === selectedMember);
+    return member?.location || null;
+  }, [selectedMember, membersData]);
 
   /* ---------- Filtered Leaves ---------- */
 
@@ -108,6 +125,8 @@ export default function CalendarPage() {
     return days;
   }, [month, year]);
 
+  /* ---------- Leaves Mapping ---------- */
+
   const leavesByDate = useMemo(() => {
     const map: Record<number, Leave[]> = {};
 
@@ -115,11 +134,7 @@ export default function CalendarPage() {
       const start = new Date(l.startDate);
       const end = new Date(l.endDate);
 
-      const current = new Date(
-        start.getFullYear(),
-        start.getMonth(),
-        start.getDate()
-      );
+      const current = new Date(start);
 
       while (current <= end) {
         if (
@@ -137,7 +152,7 @@ export default function CalendarPage() {
     return map;
   }, [filteredLeaves, month, year]);
 
-  /* ---------- Holidays Mapping ---------- */
+  /* ---------- Holidays Mapping (UPDATED) ---------- */
 
   const holidaysByDate = useMemo(() => {
     const map: Record<number, Holiday[]> = {};
@@ -149,6 +164,14 @@ export default function CalendarPage() {
         d.getMonth() === month &&
         d.getFullYear() === year
       ) {
+        // 🎯 FILTER BY MEMBER LOCATION
+        if (
+          selectedMemberLocation &&
+          h.location !== selectedMemberLocation
+        ) {
+          return;
+        }
+
         const day = d.getDate();
         map[day] = map[day] || [];
         map[day].push(h);
@@ -156,7 +179,7 @@ export default function CalendarPage() {
     });
 
     return map;
-  }, [holidays, month, year]);
+  }, [holidays, month, year, selectedMemberLocation]);
 
   /* ---------- Filter Options ---------- */
 
@@ -176,7 +199,6 @@ export default function CalendarPage() {
 
   return (
     <>
-      {/* Add / Edit Leave */}
       <LeaveForm
         onAdd={addLeave}
         onUpdate={updateLeave}
@@ -277,7 +299,7 @@ export default function CalendarPage() {
                 <>
                   <div className="font-semibold mb-1">{day}</div>
 
-                  {/* Leaves FIRST (PRIMARY) */}
+                  {/* Leaves */}
                   {(leavesByDate[day] || []).map(l => (
                     <div
                       key={`${l.id}-${day}`}
@@ -303,7 +325,7 @@ export default function CalendarPage() {
                     </div>
                   ))}
 
-                  {/* Holidays SECONDARY */}
+                  {/* Holidays */}
                   {(holidaysByDate[day] || []).map(h => (
                     <div
                       key={h.id}
