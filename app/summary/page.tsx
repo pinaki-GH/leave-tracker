@@ -11,16 +11,26 @@ const months = [
 
 type ApprovalStatus = "Approved" | "Pending";
 
+type Holiday = {
+  id: string;
+  location: string;
+  date: string;
+  name: string;
+};
+
 type SummaryRow = {
   member: string;
   organization: string;
   totals: Record<string, number>;
   totalLeaves: number;
+  workingDays: number | null;
   effectiveWorkDays: number | null;
   approvalStatus: ApprovalStatus;
 };
 
-function getWorkingDaysInMonth(year: number, month: number): number {
+/* ================= HELPERS ================= */
+
+function getWeekdays(year: number, month: number) {
   let count = 0;
   const date = new Date(year, month, 1);
 
@@ -32,35 +42,43 @@ function getWorkingDaysInMonth(year: number, month: number): number {
   return count;
 }
 
+function getHolidayCount(
+  holidays: Holiday[],
+  location: string,
+  year: number,
+  month: number
+) {
+  return holidays.filter(h => {
+    const d = new Date(h.date);
+    return (
+      h.location === location &&
+      d.getFullYear() === year &&
+      d.getMonth() === month &&
+      d.getDay() !== 0 &&
+      d.getDay() !== 6
+    );
+  }).length;
+}
+
+/* ================= COMPONENT ================= */
+
 export default function SummaryPage() {
   const now = new Date();
 
   const [leaves, setLeaves] = useState<Leave[]>([]);
-  const [members, setMembers] = useState<string[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
   const [approvalMap, setApprovalMap] =
     useState<Record<string, ApprovalStatus>>({});
-  const [memberOrgMap, setMemberOrgMap] =
-    useState<Record<string, string>>({});
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
 
-  // 🔹 Filters
   const [month, setMonth] = useState<number | "All">(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
-  const [orgFilter, setOrgFilter] = useState("All");
-  const [approvalFilter, setApprovalFilter] =
-    useState<"All" | ApprovalStatus>("All");
 
   useEffect(() => {
     setLeaves((getData("leaves") as Leave[]) || []);
-
-    const rawMembers = (getData("members") as any[]) || [];
-    setMembers(rawMembers.map(m => m.name));
-
-    const orgMap: Record<string, string> = {};
-    rawMembers.forEach(m => {
-      orgMap[m.name] = m.organization || "—";
-    });
-    setMemberOrgMap(orgMap);
+    setMembers((getData("members") as any[]) || []);
+    setHolidays((getData("companyHolidays") as Holiday[]) || []);
 
     setLeaveTypes(
       ((getData("leaveTypes") as any[]) || []).map(t => t.name)
@@ -79,39 +97,25 @@ export default function SummaryPage() {
 
   const updateApproval = (member: string, status: ApprovalStatus) => {
     const key = approvalKey(member);
-    const updated: Record<string, ApprovalStatus> = {
-      ...approvalMap,
-      [key]: status,
-    };
-
+    const updated = { ...approvalMap, [key]: status };
     setApprovalMap(updated);
     saveData("approvalStatus", updated as unknown as any[]);
   };
 
-  const clearFilters = () => {
-    const now = new Date();
-    setMonth(now.getMonth());
-    setYear(now.getFullYear());
-    setOrgFilter("All");
-    setApprovalFilter("All");
-  };
-
-  const workingDays =
-    month === "All" ? null : getWorkingDaysInMonth(year, month);
-
   const summary = useMemo<SummaryRow[]>(() => {
-    const rows: SummaryRow[] = members.map(member => ({
-      member,
-      organization: memberOrgMap[member] || "—",
+    const rows: SummaryRow[] = members.map(m => ({
+      member: m.name,
+      organization: m.organization || "—",
       totals: {},
       totalLeaves: 0,
+      workingDays: null,
       effectiveWorkDays: null,
       approvalStatus:
-        approvalMap[approvalKey(member)] || "Pending",
+        approvalMap[approvalKey(m.name)] || "Pending",
     }));
 
-    rows.forEach(row => {
-      leaveTypes.forEach(t => (row.totals[t] = 0));
+    rows.forEach(r => {
+      leaveTypes.forEach(t => (r.totals[t] = 0));
     });
 
     leaves.forEach(l => {
@@ -129,41 +133,35 @@ export default function SummaryPage() {
     });
 
     rows.forEach(r => {
-      if (workingDays !== null) {
-        r.effectiveWorkDays = Math.max(
-          workingDays - r.totalLeaves,
-          0
-        );
-      }
+      if (month === "All") return;
+
+      const memberObj = members.find(m => m.name === r.member);
+      const location = memberObj?.location || "";
+
+      const weekdays = getWeekdays(year, month);
+      const holidayCount = getHolidayCount(
+        holidays,
+        location,
+        year,
+        month
+      );
+
+      const finalWorkingDays = weekdays - holidayCount;
+
+      r.workingDays = finalWorkingDays;
+      r.effectiveWorkDays = Math.max(
+        finalWorkingDays - r.totalLeaves,
+        0
+      );
     });
 
-    return rows
-      .filter(r =>
-        orgFilter === "All" || r.organization === orgFilter
-      )
-      .filter(r =>
-        approvalFilter === "All" || r.approvalStatus === approvalFilter
-      )
-      .sort((a, b) => a.member.localeCompare(b.member));
-  }, [
-    leaves,
-    members,
-    leaveTypes,
-    month,
-    year,
-    approvalMap,
-    memberOrgMap,
-    workingDays,
-    orgFilter,
-    approvalFilter,
-  ]);
+    return rows.sort((a, b) =>
+      a.member.localeCompare(b.member)
+    );
+  }, [leaves, members, leaveTypes, month, year, approvalMap, holidays]);
 
   const years = Array.from(
     new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
-  ).sort();
-
-  const organizations = Array.from(
-    new Set(Object.values(memberOrgMap))
   ).sort();
 
   return (
@@ -173,9 +171,9 @@ export default function SummaryPage() {
       </h2>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-end gap-4 mb-6">
+      <div className="flex gap-4 mb-6">
         <select
-          className="border px-3 py-2 rounded text-sm"
+          className="border p-2"
           value={month}
           onChange={e =>
             setMonth(
@@ -192,7 +190,7 @@ export default function SummaryPage() {
         </select>
 
         <select
-          className="border px-3 py-2 rounded text-sm"
+          className="border p-2"
           value={year}
           onChange={e => setYear(Number(e.target.value))}
         >
@@ -200,115 +198,52 @@ export default function SummaryPage() {
             <option key={y}>{y}</option>
           ))}
         </select>
-
-        <select
-          className="border px-3 py-2 rounded text-sm"
-          value={orgFilter}
-          onChange={e => setOrgFilter(e.target.value)}
-        >
-          <option value="All">All Organizations</option>
-          {organizations.map(o => (
-            <option key={o} value={o}>{o}</option>
-          ))}
-        </select>
-
-        <select
-          className="border px-3 py-2 rounded text-sm"
-          value={approvalFilter}
-          onChange={e =>
-            setApprovalFilter(e.target.value as "All" | ApprovalStatus)
-          }
-        >
-          <option value="All">All Statuses</option>
-          <option value="Pending">Pending</option>
-          <option value="Approved">Approved</option>
-        </select>
-
-        {/* Clear Filter */}
-        <button
-          onClick={clearFilters}
-          className="ml-auto bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded text-sm"
-        >
-          Clear Filters
-        </button>
       </div>
 
-      {/* Working Days */}
-      {workingDays !== null && (
-        <div className="mb-4 text-sm text-gray-700">
-          <strong>Total Working Days:</strong> {workingDays}
-        </div>
-      )}
-
-      {/* Summary Table */}
-      <table className="w-full border-collapse">
+      {/* Table */}
+      <table className="w-full border">
         <thead>
-          <tr className="bg-gray-100">
-            <th className="border p-2 text-left">Member</th>
-            <th className="border p-2 text-left">Organization</th>
-            {leaveTypes.map(t => (
-              <th key={t} className="border p-2 text-center">
-                {t}
-              </th>
-            ))}
-            <th className="border p-2 text-center">Total Leaves</th>
-            <th className="border p-2 text-center">Effective Work Days</th>
-            <th className="border p-2 text-center">Approval Status</th>
+          <tr>
+            <th>Member</th>
+            <th>Organization</th>
+            {leaveTypes.map(t => <th key={t}>{t}</th>)}
+            <th>Total Leaves</th>
+            <th>Working Days</th>
+            <th>Effective Work Days</th>
+            <th>Approval</th>
           </tr>
         </thead>
 
         <tbody>
-          {summary.map(row => (
-            <tr key={row.member}>
-              <td className="border p-2 text-left">{row.member}</td>
-              <td className="border p-2 text-left">{row.organization}</td>
+          {summary.map(r => (
+            <tr key={r.member}>
+              <td>{r.member}</td>
+              <td>{r.organization}</td>
 
               {leaveTypes.map(t => (
-                <td key={t} className="border p-2 text-center">
-                  {row.totals[t] || 0}
-                </td>
+                <td key={t}>{r.totals[t]}</td>
               ))}
 
-              <td className="border p-2 text-center font-semibold">
-                {row.totalLeaves}
-              </td>
+              <td>{r.totalLeaves}</td>
+              <td>{r.workingDays ?? "—"}</td>
+              <td>{r.effectiveWorkDays ?? "—"}</td>
 
-              <td className="border p-2 text-center font-semibold">
-                {row.effectiveWorkDays ?? "—"}
-              </td>
-
-              <td className="border p-2 text-center">
+              <td>
                 <select
-                  value={row.approvalStatus}
+                  value={r.approvalStatus}
                   onChange={e =>
                     updateApproval(
-                      row.member,
+                      r.member,
                       e.target.value as ApprovalStatus
                     )
                   }
-                  className={`px-2 py-1 rounded text-sm font-medium ${
-                    row.approvalStatus === "Approved"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
                 >
-                  <option value="Pending">Pending</option>
-                  <option value="Approved">Approved</option>
+                  <option>Pending</option>
+                  <option>Approved</option>
                 </select>
               </td>
             </tr>
           ))}
-
-          {summary.length === 0 && (
-            <tr>
-              <td
-                colSpan={leaveTypes.length + 5}
-                className="text-center p-4 text-gray-500"
-              >
-                No data for selected filters
-              </td>
-            </tr>
-          )}
         </tbody>
       </table>
     </div>
