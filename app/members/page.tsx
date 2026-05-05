@@ -269,7 +269,7 @@ export default function MembersPage() {
                   <select value={editMember.location || ""} onChange={e=>setEditMember({...editMember,location:e.target.value})}>
                     {locations.map(l => <option key={l}>{l}</option>)}
                   </select>
-                  <button className="text-blue-600 mr-3" onClick={updateMember}>Save</button>
+                  <button onClick={updateMember}>Save</button>
                 </>
               ) : (
                 <>
@@ -294,19 +294,17 @@ export default function MembersPage() {
           <button onClick={addLeaveType}>Add</button>
 
           {leaveTypes.map(t => (
-            <div key={t.id} className="border p-2 mt-2 flex justify-between">
+            <div key={t.id}>
               {editingLeaveTypeId === t.id ? (
                 <>
                   <input value={editLeaveTypeName} onChange={e=>setEditLeaveTypeName(e.target.value)}/>
-                  <button className="text-blue-600 mr-3" onClick={updateLeaveType}>Save</button>
+                  <button onClick={updateLeaveType}>Save</button>
                 </>
               ) : (
                 <>
-                  <span>{t.name}</span>
-                  <div>
-                    <button className="text-blue-600 mr-3" onClick={()=>{setEditingLeaveTypeId(t.id);setEditLeaveTypeName(t.name)}}>Edit</button>
-                    <button className="text-red-600" onClick={()=>deleteLeaveType(t.id)}>Delete</button>
-                  </div>
+                  {t.name}
+                  <button className="text-blue-600 mr-3" onClick={()=>{setEditingLeaveTypeId(t.id);setEditLeaveTypeName(t.name)}}>Edit</button>
+                  <button className="text-red-600" onClick={()=>deleteLeaveType(t.id)}>Delete</button>
                 </>
               )}
             </div>
@@ -338,7 +336,7 @@ export default function MembersPage() {
                   <input type="date" value={editHoliday.date || ""} onChange={e=>setEditHoliday({...editHoliday,date:e.target.value})}/>
                   <input value={editHoliday.organization || ""} onChange={e=>setEditHoliday({...editHoliday,organization:e.target.value})}/>
                   <input value={editHoliday.location || ""} onChange={e=>setEditHoliday({...editHoliday,location:e.target.value})}/>
-                  <button className="text-blue-600 mr-3" onClick={updateHoliday}>Save</button>
+                  <button onClick={updateHoliday}>Save</button>
                 </>
               ) : (
                 <>
