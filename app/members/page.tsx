@@ -19,7 +19,7 @@ type LeaveType = {
 
 type Holiday = {
   id: string;
-  organization: string;   // ✅ NEW
+  organization: string; // ✅ NEW
   location: string;
   date: string;
   name: string;
@@ -51,7 +51,7 @@ export default function MembersPage() {
   const [newHolidayName, setNewHolidayName] = useState("");
   const [newHolidayDate, setNewHolidayDate] = useState("");
   const [newHolidayLocation, setNewHolidayLocation] = useState("");
-  const [newHolidayOrg, setNewHolidayOrg] = useState("");   // ✅ NEW
+  const [newHolidayOrg, setNewHolidayOrg] = useState(""); // ✅ NEW
 
   const [editingHolidayId, setEditingHolidayId] = useState<string | null>(null);
   const [editHoliday, setEditHoliday] = useState<Partial<Holiday>>({});
@@ -71,14 +71,11 @@ export default function MembersPage() {
 
     setLeaveTypes((getData("leaveTypes") as LeaveType[]) || []);
 
-    const storedHolidays = (getData("companyHolidays") as Partial<Holiday>[]) || [];
+    const storedHolidays = (getData("companyHolidays") as any[]) || [];
     setHolidays(
       storedHolidays.map(h => ({
-        id: h.id!,
-        name: h.name!,
-        date: h.date!,
-        location: h.location || "",
-        organization: h.organization || "",   // ✅ backward safe
+        ...h,
+        organization: h.organization || "", // ✅ backward safe
       }))
     );
   }, []);
@@ -110,6 +107,7 @@ export default function MembersPage() {
   ).filter(Boolean).sort();
 
   /* ================= MEMBERS ================= */
+  /* (UNCHANGED) */
 
   const addMember = () => {
     if (!newName.trim()) return;
@@ -154,6 +152,7 @@ export default function MembersPage() {
   };
 
   /* ================= LEAVE TYPES ================= */
+  /* (UNCHANGED) */
 
   const addLeaveType = () => {
     if (!newLeaveType.trim()) return;
@@ -197,7 +196,7 @@ export default function MembersPage() {
         name: newHolidayName,
         date: newHolidayDate,
         location: newHolidayLocation,
-        organization: newHolidayOrg,   // ✅ NEW
+        organization: newHolidayOrg, // ✅ NEW
       },
     ]);
 
@@ -255,7 +254,7 @@ export default function MembersPage() {
         ))}
       </div>
 
-      {/* ================= HOLIDAYS ================= */}
+      {/* HOLIDAYS TAB */}
       {activeTab === "holidays" && (
         <div className="bg-white p-6 rounded shadow">
           <h2 className="font-bold mb-4">Company Holidays</h2>
