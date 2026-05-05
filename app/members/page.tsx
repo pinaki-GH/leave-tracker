@@ -19,7 +19,6 @@ type LeaveType = {
 
 type Holiday = {
   id: string;
-  organization: string; // ✅ NEW
   location: string;
   date: string;
   name: string;
@@ -51,7 +50,6 @@ export default function MembersPage() {
   const [newHolidayName, setNewHolidayName] = useState("");
   const [newHolidayDate, setNewHolidayDate] = useState("");
   const [newHolidayLocation, setNewHolidayLocation] = useState("");
-  const [newHolidayOrg, setNewHolidayOrg] = useState(""); // ✅ NEW
 
   const [editingHolidayId, setEditingHolidayId] = useState<string | null>(null);
   const [editHoliday, setEditHoliday] = useState<Partial<Holiday>>({});
@@ -70,14 +68,7 @@ export default function MembersPage() {
     );
 
     setLeaveTypes((getData("leaveTypes") as LeaveType[]) || []);
-
-    const storedHolidays = (getData("companyHolidays") as any[]) || [];
-    setHolidays(
-      storedHolidays.map(h => ({
-        ...h,
-        organization: h.organization || "", // ✅ backward safe
-      }))
-    );
+    setHolidays((getData("companyHolidays") as Holiday[]) || []);
   }, []);
 
   /* ---------- Save Helpers ---------- */
@@ -107,7 +98,6 @@ export default function MembersPage() {
   ).filter(Boolean).sort();
 
   /* ================= MEMBERS ================= */
-  /* (UNCHANGED) */
 
   const addMember = () => {
     if (!newName.trim()) return;
@@ -152,7 +142,6 @@ export default function MembersPage() {
   };
 
   /* ================= LEAVE TYPES ================= */
-  /* (UNCHANGED) */
 
   const addLeaveType = () => {
     if (!newLeaveType.trim()) return;
@@ -187,7 +176,7 @@ export default function MembersPage() {
   /* ================= HOLIDAYS ================= */
 
   const addHoliday = () => {
-    if (!newHolidayName || !newHolidayDate || !newHolidayLocation || !newHolidayOrg) return;
+    if (!newHolidayName || !newHolidayDate || !newHolidayLocation) return;
 
     saveHolidays([
       ...holidays,
@@ -196,14 +185,12 @@ export default function MembersPage() {
         name: newHolidayName,
         date: newHolidayDate,
         location: newHolidayLocation,
-        organization: newHolidayOrg, // ✅ NEW
       },
     ]);
 
     setNewHolidayName("");
     setNewHolidayDate("");
     setNewHolidayLocation("");
-    setNewHolidayOrg("");
   };
 
   const updateHoliday = () => {
@@ -217,7 +204,6 @@ export default function MembersPage() {
               name: editHoliday.name || "",
               date: editHoliday.date || "",
               location: editHoliday.location || "",
-              organization: editHoliday.organization || "", // ✅ NEW
             }
           : h
       )
@@ -254,15 +240,89 @@ export default function MembersPage() {
         ))}
       </div>
 
-      {/* HOLIDAYS TAB */}
+      {/* ================= MEMBERS ================= */}
+      {activeTab === "members" && (
+        <div className="bg-white p-6 rounded shadow">
+          <h2 className="font-bold mb-4">Team Members</h2>
+
+          <div className="grid md:grid-cols-3 gap-2 mb-4">
+            <input placeholder="Name" value={newName} onChange={e=>setNewName(e.target.value)} className="border p-2"/>
+            <input placeholder="Organization" value={newOrg} onChange={e=>setNewOrg(e.target.value)} className="border p-2"/>
+
+            <select
+              value={newLocation}
+              onChange={e => setNewLocation(e.target.value)}
+              className="border p-2"
+            >
+              <option value="">Select Location</option>
+              {locations.map(l => <option key={l}>{l}</option>)}
+            </select>
+          </div>
+
+          <button onClick={addMember} className="bg-blue-600 text-white px-4 py-2 rounded mb-4">
+            Add Member
+          </button>
+
+          {members.map(m => (
+            <div key={m.id} className="border p-3 mb-2 flex justify-between">
+              {editingMemberId === m.id ? (
+                <>
+                  <input value={editMember.name||""} onChange={e=>setEditMember({...editMember,name:e.target.value})}/>
+                  <input value={editMember.organization||""} onChange={e=>setEditMember({...editMember,organization:e.target.value})}/>
+                  <select value={editMember.location||""} onChange={e=>setEditMember({...editMember,location:e.target.value})}>
+                    {locations.map(l => <option key={l}>{l}</option>)}
+                  </select>
+                  <button onClick={updateMember}>Save</button>
+                </>
+              ) : (
+                <>
+                  <div>{m.name} ({m.organization}) - {m.location}</div>
+                  <div>
+                    <button onClick={()=>{setEditingMemberId(m.id);setEditMember(m)}}>Edit</button>
+                    <button onClick={()=>deleteMember(m.id)}>Delete</button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ================= LEAVE TYPES ================= */}
+      {activeTab === "leaveTypes" && (
+        <div className="bg-white p-6 rounded shadow">
+          <h2 className="font-bold mb-4">Leave Types</h2>
+
+          <input value={newLeaveType} onChange={e=>setNewLeaveType(e.target.value)} className="border p-2"/>
+          <button onClick={addLeaveType}>Add</button>
+
+          {leaveTypes.map(t => (
+            <div key={t.id}>
+              {editingLeaveTypeId === t.id ? (
+                <>
+                  <input value={editLeaveTypeName} onChange={e=>setEditLeaveTypeName(e.target.value)}/>
+                  <button onClick={updateLeaveType}>Save</button>
+                </>
+              ) : (
+                <>
+                  {t.name}
+                  <button onClick={()=>{setEditingLeaveTypeId(t.id);setEditLeaveTypeName(t.name)}}>Edit</button>
+                  <button onClick={()=>deleteLeaveType(t.id)}>Delete</button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ================= HOLIDAYS ================= */}
       {activeTab === "holidays" && (
         <div className="bg-white p-6 rounded shadow">
           <h2 className="font-bold mb-4">Company Holidays</h2>
 
-          <div className="grid md:grid-cols-4 gap-2 mb-4">
+          <div className="grid md:grid-cols-3 gap-2 mb-4">
             <input placeholder="Holiday Name" value={newHolidayName} onChange={e=>setNewHolidayName(e.target.value)} className="border p-2"/>
             <input type="date" value={newHolidayDate} onChange={e=>setNewHolidayDate(e.target.value)} className="border p-2"/>
-            <input placeholder="Organization" value={newHolidayOrg} onChange={e=>setNewHolidayOrg(e.target.value)} className="border p-2"/>
             <input placeholder="Location" value={newHolidayLocation} onChange={e=>setNewHolidayLocation(e.target.value)} className="border p-2"/>
           </div>
 
@@ -276,13 +336,12 @@ export default function MembersPage() {
                 <>
                   <input value={editHoliday.name||""} onChange={e=>setEditHoliday({...editHoliday,name:e.target.value})}/>
                   <input type="date" value={editHoliday.date||""} onChange={e=>setEditHoliday({...editHoliday,date:e.target.value})}/>
-                  <input value={editHoliday.organization||""} onChange={e=>setEditHoliday({...editHoliday,organization:e.target.value})}/>
                   <input value={editHoliday.location||""} onChange={e=>setEditHoliday({...editHoliday,location:e.target.value})}/>
                   <button onClick={updateHoliday}>Save</button>
                 </>
               ) : (
                 <>
-                  <div>{h.name} - {h.date} ({h.organization} / {h.location})</div>
+                  <div>{h.name} - {h.date} ({h.location})</div>
                   <div>
                     <button onClick={()=>{setEditingHolidayId(h.id);setEditHoliday(h)}}>Edit</button>
                     <button onClick={()=>deleteHoliday(h.id)}>Delete</button>
