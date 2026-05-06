@@ -13,6 +13,7 @@ type ApprovalStatus = "Approved" | "Pending";
 
 type Holiday = {
   id: string;
+  organization: string; // ✅ ADDED
   location: string;
   date: string;
   name: string;
@@ -44,6 +45,7 @@ function getWeekdays(year: number, month: number) {
 
 function getHolidayCount(
   holidays: Holiday[],
+  organization: string,
   location: string,
   year: number,
   month: number
@@ -52,6 +54,7 @@ function getHolidayCount(
     const d = new Date(h.date);
     return (
       h.location === location &&
+      h.organization === organization && // ✅ UPDATED
       d.getFullYear() === year &&
       d.getMonth() === month &&
       d.getDay() !== 0 &&
@@ -78,7 +81,15 @@ export default function SummaryPage() {
   useEffect(() => {
     setLeaves((getData("leaves") as Leave[]) || []);
     setMembers((getData("members") as any[]) || []);
-    setHolidays((getData("companyHolidays") as Holiday[]) || []);
+
+    // ✅ Backward safe load
+    const storedHolidays = (getData("companyHolidays") as any[]) || [];
+    setHolidays(
+      storedHolidays.map(h => ({
+        ...h,
+        organization: h.organization || "",
+      }))
+    );
 
     setLeaveTypes(
       ((getData("leaveTypes") as any[]) || []).map(t => t.name)
@@ -118,6 +129,8 @@ export default function SummaryPage() {
       leaveTypes.forEach(t => (r.totals[t] = 0));
     });
 
+    /* ---------- CONFIRMED LEAVES ---------- */
+
     leaves.forEach(l => {
       if (l.status !== "Confirmed") return;
 
@@ -132,15 +145,43 @@ export default function SummaryPage() {
       row.totalLeaves += l.ptoDays;
     });
 
+    /* ---------- ADD COMPANY HOLIDAYS AS LEAVES ---------- */
+
+    rows.forEach(r => {
+      if (month === "All") return;
+
+      const memberObj = members.find(m => m.name === r.member);
+      if (!memberObj) return;
+
+      const holidayCount = getHolidayCount(
+        holidays,
+        memberObj.organization,
+        memberObj.location,
+        year,
+        month
+      );
+
+      r.totalLeaves += holidayCount;
+
+      if (!r.totals["Company Holiday"]) {
+        r.totals["Company Holiday"] = 0;
+      }
+      r.totals["Company Holiday"] += holidayCount;
+    });
+
+    /* ---------- WORKING DAYS ---------- */
+
     rows.forEach(r => {
       if (month === "All") return;
 
       const memberObj = members.find(m => m.name === r.member);
       const location = memberObj?.location || "";
+      const organization = memberObj?.organization || "";
 
       const weekdays = getWeekdays(year, month);
       const holidayCount = getHolidayCount(
         holidays,
+        organization,
         location,
         year,
         month
