@@ -81,7 +81,6 @@ export default function SummaryPage() {
   const [month, setMonth] = useState<number | "All">(currentMonth);
   const [year, setYear] = useState(currentYear);
 
-  // ✅ NEW FILTERS
   const [selectedMember, setSelectedMember] = useState("All");
   const [selectedOrg, setSelectedOrg] = useState("All");
 
@@ -262,32 +261,34 @@ export default function SummaryPage() {
       )}
 
       {/* Table */}
-      <table className="w-full border">
-        <thead>
+      <table className="w-full border border-gray-200 rounded overflow-hidden">
+        <thead className="bg-gray-100 text-sm font-semibold">
           <tr>
-            <th>Member</th>
-            <th>Organization</th>
-            {leaveTypes.map(t => <th key={t}>{t}</th>)}
-            <th>Total Leaves</th>
-            <th>Effective Work Days</th>
-            <th>Approval Status</th>
+            <th className="px-4 py-3 text-left">Member</th>
+            <th className="px-4 py-3 text-left">Organization</th>
+            {leaveTypes.map(t => (
+              <th key={t} className="px-4 py-3 text-center">{t}</th>
+            ))}
+            <th className="px-4 py-3 text-center">Total Leaves</th>
+            <th className="px-4 py-3 text-center">Effective Work Days</th>
+            <th className="px-4 py-3 text-center">Approval Status</th>
           </tr>
         </thead>
 
         <tbody>
-          {summary.map(r => (
-            <tr key={r.member}>
-              <td>{r.member}</td>
-              <td>{r.organization}</td>
+          {summary.map((r, idx) => (
+            <tr key={r.member} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+              <td className="px-4 py-3 text-left">{r.member}</td>
+              <td className="px-4 py-3 text-left">{r.organization}</td>
 
               {leaveTypes.map(t => (
-                <td key={t}>{r.totals[t]}</td>
+                <td key={t} className="px-4 py-3 text-center">{r.totals[t]}</td>
               ))}
 
-              <td>{r.totalLeaves}</td>
-              <td>{r.effectiveWorkDays ?? "—"}</td>
+              <td className="px-4 py-3 text-center">{r.totalLeaves}</td>
+              <td className="px-4 py-3 text-center">{r.effectiveWorkDays ?? "—"}</td>
 
-              <td>
+              <td className="px-4 py-3 text-center">
                 <select
                   value={r.approvalStatus}
                   onChange={e =>
@@ -296,7 +297,7 @@ export default function SummaryPage() {
                       e.target.value as ApprovalStatus
                     )
                   }
-                  className={`px-2 py-1 rounded ${
+                  className={`px-3 py-1 rounded text-sm ${
                     r.approvalStatus === "Approved"
                       ? "bg-green-100 text-green-700"
                       : "bg-yellow-100 text-yellow-700"
