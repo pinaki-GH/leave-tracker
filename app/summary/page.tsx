@@ -13,7 +13,7 @@ type ApprovalStatus = "Approved" | "Pending";
 
 type Holiday = {
   id: string;
-  organization: string;
+  organization: string; // ✅ ADDED
   location: string;
   date: string;
   name: string;
@@ -24,6 +24,7 @@ type SummaryRow = {
   organization: string;
   totals: Record<string, number>;
   totalLeaves: number;
+  workingDays: number | null;
   effectiveWorkDays: number | null;
   approvalStatus: ApprovalStatus;
 };
@@ -33,6 +34,7 @@ type SummaryRow = {
 function getWeekdays(year: number, month: number) {
   let count = 0;
   const date = new Date(year, month, 1);
+
   while (date.getMonth() === month) {
     const day = date.getDay();
     if (day !== 0 && day !== 6) count++;
@@ -52,7 +54,7 @@ function getHolidayCount(
     const d = new Date(h.date);
     return (
       h.location === location &&
-      h.organization === organization &&
+      h.organization === organization && // ✅ UPDATED
       d.getFullYear() === year &&
       d.getMonth() === month &&
       d.getDay() !== 0 &&
@@ -66,9 +68,6 @@ function getHolidayCount(
 export default function SummaryPage() {
   const now = new Date();
 
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
@@ -76,15 +75,14 @@ export default function SummaryPage() {
     useState<Record<string, ApprovalStatus>>({});
   const [holidays, setHolidays] = useState<Holiday[]>([]);
 
-  const [month, setMonth] = useState<number>(currentMonth);
-  const [year, setYear] = useState(currentYear);
-  const [selectedMember, setSelectedMember] = useState("All");
-  const [selectedOrg, setSelectedOrg] = useState("All");
+  const [month, setMonth] = useState<number | "All">(now.getMonth());
+  const [year, setYear] = useState(now.getFullYear());
 
   useEffect(() => {
     setLeaves((getData("leaves") as Leave[]) || []);
     setMembers((getData("members") as any[]) || []);
 
+    // ✅ Backward safe load
     const storedHolidays = (getData("companyHolidays") as any[]) || [];
     setHolidays(
       storedHolidays.map(h => ({
@@ -100,6 +98,8 @@ export default function SummaryPage() {
     const raw = getData("approvalStatus");
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
       setApprovalMap(raw as Record<string, ApprovalStatus>);
+    } else {
+      setApprovalMap({});
     }
   }, []);
 
@@ -107,39 +107,36 @@ export default function SummaryPage() {
     `${year}-${month}-${member}`;
 
   const updateApproval = (member: string, status: ApprovalStatus) => {
-    const updated = { ...approvalMap, [approvalKey(member)]: status };
+    const key = approvalKey(member);
+    const updated = { ...approvalMap, [key]: status };
     setApprovalMap(updated);
-    saveData("approvalStatus", updated as any[]);
+    saveData("approvalStatus", updated as unknown as any[]);
   };
 
-  /* ================= SUMMARY ================= */
-
   const summary = useMemo<SummaryRow[]>(() => {
-    const rows: SummaryRow[] = members
-      .filter(m =>
-        (selectedMember === "All" || m.name === selectedMember) &&
-        (selectedOrg === "All" || m.organization === selectedOrg)
-      )
-      .map(m => ({
-        member: m.name,
-        organization: m.organization || "—",
-        totals: {},
-        totalLeaves: 0,
-        effectiveWorkDays: null,
-        approvalStatus:
-          approvalMap[approvalKey(m.name)] || "Pending",
-      }));
+    const rows: SummaryRow[] = members.map(m => ({
+      member: m.name,
+      organization: m.organization || "—",
+      totals: {},
+      totalLeaves: 0,
+      workingDays: null,
+      effectiveWorkDays: null,
+      approvalStatus:
+        approvalMap[approvalKey(m.name)] || "Pending",
+    }));
 
     rows.forEach(r => {
       leaveTypes.forEach(t => (r.totals[t] = 0));
     });
 
-    /* Leaves */
+    /* ---------- CONFIRMED LEAVES ---------- */
+
     leaves.forEach(l => {
       if (l.status !== "Confirmed") return;
 
       const d = new Date(l.startDate);
-      if (d.getMonth() !== month || d.getFullYear() !== year) return;
+      if (month !== "All" && d.getMonth() !== month) return;
+      if (d.getFullYear() !== year) return;
 
       const row = rows.find(r => r.member === l.memberName);
       if (!row) return;
@@ -148,8 +145,11 @@ export default function SummaryPage() {
       row.totalLeaves += l.ptoDays;
     });
 
-    /* Holidays */
+    /* ---------- ADD COMPANY HOLIDAYS AS LEAVES ---------- */
+
     rows.forEach(r => {
+      if (month === "All") return;
+
       const memberObj = members.find(m => m.name === r.member);
       if (!memberObj) return;
 
@@ -162,26 +162,36 @@ export default function SummaryPage() {
       );
 
       r.totalLeaves += holidayCount;
+
+      if (!r.totals["Company Holiday"]) {
+        r.totals["Company Holiday"] = 0;
+      }
+      r.totals["Company Holiday"] += holidayCount;
     });
 
-    /* Effective Work Days */
+    /* ---------- WORKING DAYS ---------- */
+
     rows.forEach(r => {
+      if (month === "All") return;
+
       const memberObj = members.find(m => m.name === r.member);
-      if (!memberObj) return;
+      const location = memberObj?.location || "";
+      const organization = memberObj?.organization || "";
 
       const weekdays = getWeekdays(year, month);
       const holidayCount = getHolidayCount(
         holidays,
-        memberObj.organization,
-        memberObj.location,
+        organization,
+        location,
         year,
         month
       );
 
-      const workingDays = weekdays - holidayCount;
+      const finalWorkingDays = weekdays - holidayCount;
 
+      r.workingDays = finalWorkingDays;
       r.effectiveWorkDays = Math.max(
-        workingDays - r.totalLeaves,
+        finalWorkingDays - r.totalLeaves,
         0
       );
     });
@@ -189,16 +199,11 @@ export default function SummaryPage() {
     return rows.sort((a, b) =>
       a.member.localeCompare(b.member)
     );
-  }, [leaves, members, leaveTypes, month, year, approvalMap, holidays, selectedMember, selectedOrg]);
+  }, [leaves, members, leaveTypes, month, year, approvalMap, holidays]);
 
-  /* ================= FILTER DATA ================= */
-
-  const memberNames = ["All", ...members.map(m => m.name).sort()];
-  const orgs = ["All", ...Array.from(new Set(members.map(m => m.organization))).sort()];
-
-  const totalWorkingDays = getWeekdays(year, month);
-
-  /* ================= UI ================= */
+  const years = Array.from(
+    new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
+  ).sort();
 
   return (
     <div className="bg-white p-6 rounded shadow">
@@ -207,39 +212,33 @@ export default function SummaryPage() {
       </h2>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-4">
-        <select value={month} onChange={e=>setMonth(Number(e.target.value))} className="border p-2">
-          {months.map((m,i)=><option key={m} value={i}>{m}</option>)}
-        </select>
-
-        <select value={year} onChange={e=>setYear(Number(e.target.value))} className="border p-2">
-          {Array.from(new Set(leaves.map(l=>new Date(l.startDate).getFullYear()))).map(y=><option key={y}>{y}</option>)}
-        </select>
-
-        <select value={selectedMember} onChange={e=>setSelectedMember(e.target.value)} className="border p-2">
-          {memberNames.map(m=><option key={m}>{m}</option>)}
-        </select>
-
-        <select value={selectedOrg} onChange={e=>setSelectedOrg(e.target.value)} className="border p-2">
-          {orgs.map(o=><option key={o}>{o || "—"}</option>)}
-        </select>
-
-        <button
-          onClick={()=>{
-            setMonth(currentMonth);
-            setYear(currentYear);
-            setSelectedMember("All");
-            setSelectedOrg("All");
-          }}
-          className="ml-auto bg-gray-200 px-4 py-2 rounded"
+      <div className="flex gap-4 mb-6">
+        <select
+          className="border p-2"
+          value={month}
+          onChange={e =>
+            setMonth(
+              e.target.value === "All"
+                ? "All"
+                : Number(e.target.value)
+            )
+          }
         >
-          Clear Filters
-        </button>
-      </div>
+          <option value="All">All Months</option>
+          {months.map((m, i) => (
+            <option key={m} value={i}>{m}</option>
+          ))}
+        </select>
 
-      {/* Working Days */}
-      <div className="mb-4 font-medium">
-        Total Working Days: {totalWorkingDays}
+        <select
+          className="border p-2"
+          value={year}
+          onChange={e => setYear(Number(e.target.value))}
+        >
+          {years.map(y => (
+            <option key={y}>{y}</option>
+          ))}
+        </select>
       </div>
 
       {/* Table */}
@@ -250,8 +249,9 @@ export default function SummaryPage() {
             <th>Organization</th>
             {leaveTypes.map(t => <th key={t}>{t}</th>)}
             <th>Total Leaves</th>
+            <th>Working Days</th>
             <th>Effective Work Days</th>
-            <th>Approval Status</th>
+            <th>Approval</th>
           </tr>
         </thead>
 
@@ -266,7 +266,8 @@ export default function SummaryPage() {
               ))}
 
               <td>{r.totalLeaves}</td>
-              <td>{r.effectiveWorkDays}</td>
+              <td>{r.workingDays ?? "—"}</td>
+              <td>{r.effectiveWorkDays ?? "—"}</td>
 
               <td>
                 <select
@@ -277,11 +278,6 @@ export default function SummaryPage() {
                       e.target.value as ApprovalStatus
                     )
                   }
-                  className={`px-2 py-1 rounded ${
-                    r.approvalStatus === "Approved"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
                 >
                   <option>Pending</option>
                   <option>Approved</option>
