@@ -191,11 +191,10 @@ export default function SummaryPage() {
         month
       );
 
-      const finalWorkingDays = weekdays - holidayCount;
+      r.workingDays = weekdays;
 
-      r.workingDays = finalWorkingDays;
       r.effectiveWorkDays = Math.max(
-        finalWorkingDays - r.totalLeaves,
+        weekdays - r.totalLeaves,
         0
       );
     });
