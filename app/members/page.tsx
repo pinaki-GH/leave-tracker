@@ -134,17 +134,146 @@ export default function MembersPage() {
     if (!editingMemberId || !editMember.name?.trim()) return;
 
     saveMembers(
-      members.map(m =>
-        m.id === editingMemberId
-          ? {
-              ...m,
-              name: editMember.name!,
-              organization: editMember.organization || "",
-              location: editMember.location || "",
-              managedBy: editMember.managedBy || "",
-            }
-          : m
-      )
+      <table className="w-full border border-gray-200 rounded overflow-hidden">
+  <thead className="bg-gray-100">
+    <tr>
+      <th className="px-4 py-3 text-left">Team Member</th>
+      <th className="px-4 py-3 text-left">Leave Organization</th>
+      <th className="px-4 py-3 text-left">Work Location</th>
+      <th className="px-4 py-3 text-left">Managed By</th>
+      <th className="px-4 py-3 text-center">Actions</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {members.map((m, idx) => (
+      <tr
+        key={m.id}
+        className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
+      >
+        {editingMemberId === m.id ? (
+          <>
+            <td className="px-4 py-3">
+              <input
+                value={editMember.name || ""}
+                onChange={e =>
+                  setEditMember({
+                    ...editMember,
+                    name: e.target.value,
+                  })
+                }
+                className="border p-2 w-full"
+              />
+            </td>
+
+            <td className="px-4 py-3">
+              <input
+                value={editMember.organization || ""}
+                onChange={e =>
+                  setEditMember({
+                    ...editMember,
+                    organization: e.target.value,
+                  })
+                }
+                className="border p-2 w-full"
+              />
+            </td>
+
+            <td className="px-4 py-3">
+              <select
+                value={editMember.location || ""}
+                onChange={e =>
+                  setEditMember({
+                    ...editMember,
+                    location: e.target.value,
+                  })
+                }
+                className="border p-2 w-full"
+              >
+                <option value="">Select Location</option>
+
+                {locations.map(l => (
+                  <option key={l}>{l}</option>
+                ))}
+              </select>
+            </td>
+
+            <td className="px-4 py-3">
+              <input
+                value={editMember.managedBy || ""}
+                onChange={e =>
+                  setEditMember({
+                    ...editMember,
+                    managedBy: e.target.value,
+                  })
+                }
+                className="border p-2 w-full"
+              />
+            </td>
+
+            <td className="px-4 py-3 text-center">
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={updateMember}
+                  className="text-blue-600"
+                >
+                  Save
+                </button>
+
+                <button
+                  onClick={() => {
+                    setEditingMemberId(null);
+                    setEditMember({});
+                  }}
+                  className="text-gray-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </td>
+          </>
+        ) : (
+          <>
+            <td className="px-4 py-3">{m.name}</td>
+
+            <td className="px-4 py-3">
+              {m.organization || "—"}
+            </td>
+
+            <td className="px-4 py-3">
+              {m.location || "—"}
+            </td>
+
+            <td className="px-4 py-3">
+              {m.managedBy || "—"}
+            </td>
+
+            <td className="px-4 py-3 text-center">
+              <div className="flex justify-center gap-3">
+                <button
+                  className="text-blue-600"
+                  onClick={() => {
+                    setEditingMemberId(m.id);
+                    setEditMember(m);
+                  }}
+                >
+                  Edit
+                </button>
+
+                <button
+                  className="text-red-600"
+                  onClick={() => deleteMember(m.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            </td>
+          </>
+        )}
+      </tr>
+    ))}
+  </tbody>
+</table>
     );
 
     setEditingMemberId(null);
