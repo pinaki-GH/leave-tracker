@@ -22,6 +22,7 @@ type Holiday = {
 type SummaryRow = {
   member: string;
   organization: string;
+  managedBy: string;
   totals: Record<string, number>;
   totalLeaves: number;
   workingDays: number | null;
@@ -81,8 +82,14 @@ export default function SummaryPage() {
   const [month, setMonth] = useState<number | "All">(currentMonth);
   const [year, setYear] = useState(currentYear);
 
-  const [selectedMember, setSelectedMember] = useState("All");
-  const [selectedOrg, setSelectedOrg] = useState("All");
+  const [selectedMember, setSelectedMember] =
+    useState("All Members");
+
+  const [selectedOrg, setSelectedOrg] =
+    useState("All Leave Organizations");
+
+  const [selectedManager, setSelectedManager] =
+    useState("All Managers");
 
   useEffect(() => {
     setLeaves((getData("leaves") as Leave[]) || []);
@@ -101,6 +108,7 @@ export default function SummaryPage() {
     );
 
     const raw = getData("approvalStatus");
+
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
       setApprovalMap(raw as Record<string, ApprovalStatus>);
     } else {
@@ -111,22 +119,38 @@ export default function SummaryPage() {
   const approvalKey = (member: string) =>
     `${year}-${month}-${member}`;
 
-  const updateApproval = (member: string, status: ApprovalStatus) => {
+  const updateApproval = (
+    member: string,
+    status: ApprovalStatus
+  ) => {
     const key = approvalKey(member);
-    const updated = { ...approvalMap, [key]: status };
+
+    const updated = {
+      ...approvalMap,
+      [key]: status,
+    };
+
     setApprovalMap(updated);
+
     saveData("approvalStatus", updated as unknown as any[]);
   };
 
   const summary = useMemo<SummaryRow[]>(() => {
     const rows: SummaryRow[] = members
       .filter(m =>
-        (selectedMember === "All" || m.name === selectedMember) &&
-        (selectedOrg === "All" || m.organization === selectedOrg)
+        (selectedMember === "All Members" ||
+          m.name === selectedMember) &&
+
+        (selectedOrg === "All Leave Organizations" ||
+          m.organization === selectedOrg) &&
+
+        (selectedManager === "All Managers" ||
+          m.managedBy === selectedManager)
       )
       .map(m => ({
         member: m.name,
         organization: m.organization || "—",
+        managedBy: m.managedBy || "—",
         totals: {},
         totalLeaves: 0,
         workingDays: null,
@@ -143,10 +167,12 @@ export default function SummaryPage() {
       if (l.status !== "Confirmed") return;
 
       const d = new Date(l.startDate);
+
       if (month !== "All" && d.getMonth() !== month) return;
       if (d.getFullYear() !== year) return;
 
       const row = rows.find(r => r.member === l.memberName);
+
       if (!row) return;
 
       row.totals[l.leaveType] += l.ptoDays;
@@ -157,6 +183,7 @@ export default function SummaryPage() {
       if (month === "All") return;
 
       const memberObj = members.find(m => m.name === r.member);
+
       if (!memberObj) return;
 
       const holidayCount = getHolidayCount(
@@ -172,24 +199,14 @@ export default function SummaryPage() {
       if (!r.totals["Company Holiday"]) {
         r.totals["Company Holiday"] = 0;
       }
+
       r.totals["Company Holiday"] += holidayCount;
     });
 
     rows.forEach(r => {
       if (month === "All") return;
 
-      const memberObj = members.find(m => m.name === r.member);
-      const location = memberObj?.location || "";
-      const organization = memberObj?.organization || "";
-
       const weekdays = getWeekdays(year, month);
-      const holidayCount = getHolidayCount(
-        holidays,
-        organization,
-        location,
-        year,
-        month
-      );
 
       r.workingDays = weekdays;
 
@@ -202,17 +219,54 @@ export default function SummaryPage() {
     return rows.sort((a, b) =>
       a.member.localeCompare(b.member)
     );
-  }, [leaves, members, leaveTypes, month, year, approvalMap, holidays, selectedMember, selectedOrg]);
+  }, [
+    leaves,
+    members,
+    leaveTypes,
+    month,
+    year,
+    approvalMap,
+    holidays,
+    selectedMember,
+    selectedOrg,
+    selectedManager,
+  ]);
 
   const years = Array.from(
-    new Set(leaves.map(l => new Date(l.startDate).getFullYear()))
+    new Set(
+      leaves.map(l =>
+        new Date(l.startDate).getFullYear()
+      )
+    )
   ).sort();
 
-  const memberOptions = ["All", ...members.map(m => m.name).sort()];
-  const orgOptions = ["All", ...Array.from(new Set(members.map(m => m.organization))).sort()];
+  const memberOptions = [
+    "All Members",
+    ...members.map(m => m.name).sort(),
+  ];
+
+  const orgOptions = [
+    "All Leave Organizations",
+    ...Array.from(
+      new Set(members.map(m => m.organization))
+    ).sort(),
+  ];
+
+  const managerOptions = [
+    "All Managers",
+    ...Array.from(
+      new Set(
+        members
+          .map(m => m.managedBy)
+          .filter(Boolean)
+      )
+    ).sort(),
+  ];
 
   const totalWorkingDays =
-    month === "All" ? null : getWeekdays(year, month);
+    month === "All"
+      ? null
+      : getWeekdays(year, month);
 
   return (
     <div className="bg-white p-6 rounded shadow">
@@ -222,29 +276,73 @@ export default function SummaryPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4 mb-4">
-        <select className="border p-2" value={month} onChange={e => setMonth(e.target.value === "All" ? "All" : Number(e.target.value))}>
+        <select
+          className="border p-2"
+          value={month}
+          onChange={e =>
+            setMonth(
+              e.target.value === "All"
+                ? "All"
+                : Number(e.target.value)
+            )
+          }
+        >
           <option value="All">All Months</option>
-          {months.map((m, i) => <option key={m} value={i}>{m}</option>)}
+
+          {months.map((m, i) => (
+            <option key={m} value={i}>
+              {m}
+            </option>
+          ))}
         </select>
 
-        <select className="border p-2" value={year} onChange={e => setYear(Number(e.target.value))}>
-          {years.map(y => <option key={y}>{y}</option>)}
+        <select
+          className="border p-2"
+          value={year}
+          onChange={e => setYear(Number(e.target.value))}
+        >
+          {years.map(y => (
+            <option key={y}>{y}</option>
+          ))}
         </select>
 
-        <select className="border p-2" value={selectedMember} onChange={e => setSelectedMember(e.target.value)}>
-          {memberOptions.map(m => <option key={m}>{m}</option>)}
+        <select
+          className="border p-2"
+          value={selectedMember}
+          onChange={e => setSelectedMember(e.target.value)}
+        >
+          {memberOptions.map(m => (
+            <option key={m}>{m}</option>
+          ))}
         </select>
 
-        <select className="border p-2" value={selectedOrg} onChange={e => setSelectedOrg(e.target.value)}>
-          {orgOptions.map(o => <option key={o}>{o || "—"}</option>)}
+        <select
+          className="border p-2"
+          value={selectedOrg}
+          onChange={e => setSelectedOrg(e.target.value)}
+        >
+          {orgOptions.map(o => (
+            <option key={o}>{o || "—"}</option>
+          ))}
+        </select>
+
+        <select
+          className="border p-2"
+          value={selectedManager}
+          onChange={e => setSelectedManager(e.target.value)}
+        >
+          {managerOptions.map(m => (
+            <option key={m}>{m}</option>
+          ))}
         </select>
 
         <button
           onClick={() => {
             setMonth(currentMonth);
             setYear(currentYear);
-            setSelectedMember("All");
-            setSelectedOrg("All");
+            setSelectedMember("All Members");
+            setSelectedOrg("All Leave Organizations");
+            setSelectedManager("All Managers");
           }}
           className="ml-auto border px-4 py-2 rounded"
         >
@@ -263,29 +361,79 @@ export default function SummaryPage() {
       <table className="w-full border border-gray-200 rounded overflow-hidden">
         <thead className="bg-gray-100 text-sm font-semibold">
           <tr>
-            <th className="px-4 py-3 text-left">Member</th>
-            <th className="px-4 py-3 text-left">Organization</th>
+            <th className="px-4 py-3 text-left">
+              Team Member
+            </th>
+
+            <th className="px-4 py-3 text-left">
+              Leave Organization
+            </th>
+
+            <th className="px-4 py-3 text-left">
+              Managed By
+            </th>
+
             {leaveTypes.map(t => (
-              <th key={t} className="px-4 py-3 text-center">{t}</th>
+              <th
+                key={t}
+                className="px-4 py-3 text-center"
+              >
+                {t}
+              </th>
             ))}
-            <th className="px-4 py-3 text-center">Total Leaves</th>
-            <th className="px-4 py-3 text-center">Effective Work Days</th>
-            <th className="px-4 py-3 text-center">Approval Status</th>
+
+            <th className="px-4 py-3 text-center">
+              Total Leaves
+            </th>
+
+            <th className="px-4 py-3 text-center">
+              Effective Work Days
+            </th>
+
+            <th className="px-4 py-3 text-center">
+              Approval Status
+            </th>
           </tr>
         </thead>
 
         <tbody>
           {summary.map((r, idx) => (
-            <tr key={r.member} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-              <td className="px-4 py-3 text-left">{r.member}</td>
-              <td className="px-4 py-3 text-left">{r.organization}</td>
+            <tr
+              key={r.member}
+              className={
+                idx % 2 === 0
+                  ? "bg-white"
+                  : "bg-gray-50"
+              }
+            >
+              <td className="px-4 py-3 text-left">
+                {r.member}
+              </td>
+
+              <td className="px-4 py-3 text-left">
+                {r.organization}
+              </td>
+
+              <td className="px-4 py-3 text-left">
+                {r.managedBy}
+              </td>
 
               {leaveTypes.map(t => (
-                <td key={t} className="px-4 py-3 text-center">{r.totals[t]}</td>
+                <td
+                  key={t}
+                  className="px-4 py-3 text-center"
+                >
+                  {r.totals[t]}
+                </td>
               ))}
 
-              <td className="px-4 py-3 text-center">{r.totalLeaves}</td>
-              <td className="px-4 py-3 text-center">{r.effectiveWorkDays ?? "—"}</td>
+              <td className="px-4 py-3 text-center">
+                {r.totalLeaves}
+              </td>
+
+              <td className="px-4 py-3 text-center">
+                {r.effectiveWorkDays ?? "—"}
+              </td>
 
               <td className="px-4 py-3 text-center">
                 <select
