@@ -20,7 +20,7 @@ type LeaveType = {
 
 type Holiday = {
   id: string;
-  organization: string;
+ organization: string;
   location: string;
   date: string;
   name: string;
@@ -575,106 +575,139 @@ export default function MembersPage() {
             Add Holiday
           </button>
 
-          {holidays.map(h => (
-            <div
-              key={h.id}
-              className="border p-3 mb-2 flex justify-between items-start"
-            >
-              {editingHolidayId === h.id ? (
-                <div className="grid md:grid-cols-4 gap-2 w-full">
-                  <input
-                    value={editHoliday.name || ""}
-                    onChange={e =>
-                      setEditHoliday({
-                        ...editHoliday,
-                        name: e.target.value,
-                      })
-                    }
-                    className="border p-2"
-                  />
+          <table className="w-full border border-gray-200 rounded overflow-hidden">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="px-4 py-3 text-left">Holiday Name</th>
+                <th className="px-4 py-3 text-left">Date</th>
+                <th className="px-4 py-3 text-left">Organization</th>
+                <th className="px-4 py-3 text-left">Location</th>
+                <th className="px-4 py-3 text-center">Actions</th>
+              </tr>
+            </thead>
 
-                  <input
-                    type="date"
-                    value={editHoliday.date || ""}
-                    onChange={e =>
-                      setEditHoliday({
-                        ...editHoliday,
-                        date: e.target.value,
-                      })
-                    }
-                    className="border p-2"
-                  />
+            <tbody>
+              {holidays.map((h, idx) => (
+                <tr
+                  key={h.id}
+                  className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                >
+                  {editingHolidayId === h.id ? (
+                    <>
+                      <td className="px-4 py-3">
+                        <input
+                          value={editHoliday.name || ""}
+                          onChange={e =>
+                            setEditHoliday({
+                              ...editHoliday,
+                              name: e.target.value,
+                            })
+                          }
+                          className="border p-2 w-full"
+                        />
+                      </td>
 
-                  <input
-                    value={editHoliday.organization || ""}
-                    onChange={e =>
-                      setEditHoliday({
-                        ...editHoliday,
-                        organization: e.target.value,
-                      })
-                    }
-                    className="border p-2"
-                  />
+                      <td className="px-4 py-3">
+                        <input
+                          type="date"
+                          value={editHoliday.date || ""}
+                          onChange={e =>
+                            setEditHoliday({
+                              ...editHoliday,
+                              date: e.target.value,
+                            })
+                          }
+                          className="border p-2 w-full"
+                        />
+                      </td>
 
-                  <input
-                    value={editHoliday.location || ""}
-                    onChange={e =>
-                      setEditHoliday({
-                        ...editHoliday,
-                        location: e.target.value,
-                      })
-                    }
-                    className="border p-2"
-                  />
+                      <td className="px-4 py-3">
+                        <input
+                          value={editHoliday.organization || ""}
+                          onChange={e =>
+                            setEditHoliday({
+                              ...editHoliday,
+                              organization: e.target.value,
+                            })
+                          }
+                          className="border p-2 w-full"
+                        />
+                      </td>
 
-                  <div className="col-span-full flex gap-3 mt-2">
-                    <button
-                      onClick={updateHoliday}
-                      className="text-blue-600"
-                    >
-                      Save
-                    </button>
+                      <td className="px-4 py-3">
+                        <input
+                          value={editHoliday.location || ""}
+                          onChange={e =>
+                            setEditHoliday({
+                              ...editHoliday,
+                              location: e.target.value,
+                            })
+                          }
+                          className="border p-2 w-full"
+                        />
+                      </td>
 
-                    <button
-                      onClick={() => {
-                        setEditingHolidayId(null);
-                        setEditHoliday({});
-                      }}
-                      className="text-gray-500"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    {h.name} - {h.organization} - {h.location} (
-                    {h.date})
-                  </div>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex justify-center gap-3">
+                          <button
+                            onClick={updateHoliday}
+                            className="text-blue-600"
+                          >
+                            Save
+                          </button>
 
-                  <div className="flex gap-3">
-                    <button
-                      className="text-blue-600"
-                      onClick={() => {
-                        setEditingHolidayId(h.id);
-                        setEditHoliday(h);
-                      }}
-                    >
-                      Edit
-                    </button>
+                          <button
+                            onClick={() => {
+                              setEditingHolidayId(null);
+                              setEditHoliday({});
+                            }}
+                            className="text-gray-500"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-3">{h.name}</td>
 
-                    <button
-                      className="text-red-600"
-                      onClick={() => deleteHoliday(h.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+                      <td className="px-4 py-3">{h.date}</td>
+
+                      <td className="px-4 py-3">
+                        {h.organization || "—"}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {h.location || "—"}
+                      </td>
+
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex justify-center gap-3">
+                          <button
+                            className="text-blue-600"
+                            onClick={() => {
+                              setEditingHolidayId(h.id);
+                              setEditHoliday(h);
+                            }}
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            className="text-red-600"
+                            onClick={() => deleteHoliday(h.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
