@@ -11,10 +11,10 @@ export default function RootLayout({
   const pathname = usePathname();
 
   const tabs = [
-    { label: "List View", href: "/" },
-    { label: "Calendar View", href: "/calendar" },
-    { label: "Summary View", href: "/summary" },
-    { label: "Members & Leave Types", href: "/members" },
+    { label: "Personal Leaves", href: "/" },
+    { label: "Consolidated Leaves", href: "/calendar" },
+    { label: "Invoicing Tracker", href: "/summary" },
+    { label: "Master Data", href: "/members" },
   ];
 
   return (
