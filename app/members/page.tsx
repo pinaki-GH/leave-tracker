@@ -20,7 +20,7 @@ type LeaveType = {
 
 type Holiday = {
   id: string;
- organization: string;
+  organization: string;
   location: string;
   date: string;
   name: string;
@@ -58,6 +58,13 @@ export default function MembersPage() {
 
   const [editingHolidayId, setEditingHolidayId] = useState<string | null>(null);
   const [editHoliday, setEditHoliday] = useState<Partial<Holiday>>({});
+
+  const [selectedHolidayOrg, setSelectedHolidayOrg] = useState(
+    "All Leave Organizations"
+  );
+
+  const [selectedHolidayLocation, setSelectedHolidayLocation] =
+    useState("All Locations");
 
   useEffect(() => {
     const storedMembers = (getData("members") as Partial<Member>[]) || [];
@@ -554,14 +561,14 @@ export default function MembersPage() {
             />
 
             <input
-              placeholder="Organization"
+              placeholder="Leave Organization"
               value={newHolidayOrg}
               onChange={e => setNewHolidayOrg(e.target.value)}
               className="border p-2"
             />
 
             <input
-              placeholder="Location"
+              placeholder="Work Location"
               value={newHolidayLocation}
               onChange={e => setNewHolidayLocation(e.target.value)}
               className="border p-2"
@@ -575,137 +582,235 @@ export default function MembersPage() {
             Add Holiday
           </button>
 
+          {/* Filters */}
+          <div className="flex flex-wrap gap-4 mb-4">
+            <select
+              className="border p-2"
+              value={selectedHolidayOrg}
+              onChange={e => setSelectedHolidayOrg(e.target.value)}
+            >
+              <option>All Leave Organizations</option>
+
+              {Array.from(
+                new Set(
+                  holidays
+                    .map(h => h.organization)
+                    .filter(Boolean)
+                )
+              )
+                .sort()
+                .map(org => (
+                  <option key={org}>{org}</option>
+                ))}
+            </select>
+
+            <select
+              className="border p-2"
+              value={selectedHolidayLocation}
+              onChange={e =>
+                setSelectedHolidayLocation(e.target.value)
+              }
+            >
+              <option>All Locations</option>
+
+              {Array.from(
+                new Set(
+                  holidays
+                    .map(h => h.location)
+                    .filter(Boolean)
+                )
+              )
+                .sort()
+                .map(location => (
+                  <option key={location}>{location}</option>
+                ))}
+            </select>
+
+            <button
+              onClick={() => {
+                setSelectedHolidayOrg(
+                  "All Leave Organizations"
+                );
+
+                setSelectedHolidayLocation(
+                  "All Locations"
+                );
+              }}
+              className="ml-auto border px-4 py-2 rounded"
+            >
+              Clear Filter
+            </button>
+          </div>
+
           <table className="w-full border border-gray-200 rounded overflow-hidden">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left">Holiday Name</th>
-                <th className="px-4 py-3 text-left">Date</th>
-                <th className="px-4 py-3 text-left">Organization</th>
-                <th className="px-4 py-3 text-left">Location</th>
-                <th className="px-4 py-3 text-center">Actions</th>
+                <th className="px-4 py-3 text-left">
+                  Holiday Name
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  Date
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  Leave Organization
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  Work Location
+                </th>
+
+                <th className="px-4 py-3 text-center">
+                  Actions
+                </th>
               </tr>
             </thead>
 
             <tbody>
-              {holidays.map((h, idx) => (
-                <tr
-                  key={h.id}
-                  className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                >
-                  {editingHolidayId === h.id ? (
-                    <>
-                      <td className="px-4 py-3">
-                        <input
-                          value={editHoliday.name || ""}
-                          onChange={e =>
-                            setEditHoliday({
-                              ...editHoliday,
-                              name: e.target.value,
-                            })
-                          }
-                          className="border p-2 w-full"
-                        />
-                      </td>
+              {holidays
+                .filter(h =>
+                  (selectedHolidayOrg ===
+                    "All Leave Organizations" ||
+                    h.organization ===
+                      selectedHolidayOrg) &&
+                  (selectedHolidayLocation ===
+                    "All Locations" ||
+                    h.location ===
+                      selectedHolidayLocation)
+                )
+                .map((h, idx) => (
+                  <tr
+                    key={h.id}
+                    className={
+                      idx % 2 === 0
+                        ? "bg-white"
+                        : "bg-gray-50"
+                    }
+                  >
+                    {editingHolidayId === h.id ? (
+                      <>
+                        <td className="px-4 py-3">
+                          <input
+                            value={editHoliday.name || ""}
+                            onChange={e =>
+                              setEditHoliday({
+                                ...editHoliday,
+                                name: e.target.value,
+                              })
+                            }
+                            className="border p-2 w-full"
+                          />
+                        </td>
 
-                      <td className="px-4 py-3">
-                        <input
-                          type="date"
-                          value={editHoliday.date || ""}
-                          onChange={e =>
-                            setEditHoliday({
-                              ...editHoliday,
-                              date: e.target.value,
-                            })
-                          }
-                          className="border p-2 w-full"
-                        />
-                      </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="date"
+                            value={editHoliday.date || ""}
+                            onChange={e =>
+                              setEditHoliday({
+                                ...editHoliday,
+                                date: e.target.value,
+                              })
+                            }
+                            className="border p-2 w-full"
+                          />
+                        </td>
 
-                      <td className="px-4 py-3">
-                        <input
-                          value={editHoliday.organization || ""}
-                          onChange={e =>
-                            setEditHoliday({
-                              ...editHoliday,
-                              organization: e.target.value,
-                            })
-                          }
-                          className="border p-2 w-full"
-                        />
-                      </td>
+                        <td className="px-4 py-3">
+                          <input
+                            value={
+                              editHoliday.organization || ""
+                            }
+                            onChange={e =>
+                              setEditHoliday({
+                                ...editHoliday,
+                                organization:
+                                  e.target.value,
+                              })
+                            }
+                            className="border p-2 w-full"
+                          />
+                        </td>
 
-                      <td className="px-4 py-3">
-                        <input
-                          value={editHoliday.location || ""}
-                          onChange={e =>
-                            setEditHoliday({
-                              ...editHoliday,
-                              location: e.target.value,
-                            })
-                          }
-                          className="border p-2 w-full"
-                        />
-                      </td>
+                        <td className="px-4 py-3">
+                          <input
+                            value={editHoliday.location || ""}
+                            onChange={e =>
+                              setEditHoliday({
+                                ...editHoliday,
+                                location: e.target.value,
+                              })
+                            }
+                            className="border p-2 w-full"
+                          />
+                        </td>
 
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex justify-center gap-3">
-                          <button
-                            onClick={updateHoliday}
-                            className="text-blue-600"
-                          >
-                            Save
-                          </button>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex justify-center gap-3">
+                            <button
+                              onClick={updateHoliday}
+                              className="text-blue-600"
+                            >
+                              Save
+                            </button>
 
-                          <button
-                            onClick={() => {
-                              setEditingHolidayId(null);
-                              setEditHoliday({});
-                            }}
-                            className="text-gray-500"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-4 py-3">{h.name}</td>
+                            <button
+                              onClick={() => {
+                                setEditingHolidayId(null);
+                                setEditHoliday({});
+                              }}
+                              className="text-gray-500"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-4 py-3">
+                          {h.name}
+                        </td>
 
-                      <td className="px-4 py-3">{h.date}</td>
+                        <td className="px-4 py-3">
+                          {h.date}
+                        </td>
 
-                      <td className="px-4 py-3">
-                        {h.organization || "—"}
-                      </td>
+                        <td className="px-4 py-3">
+                          {h.organization || "—"}
+                        </td>
 
-                      <td className="px-4 py-3">
-                        {h.location || "—"}
-                      </td>
+                        <td className="px-4 py-3">
+                          {h.location || "—"}
+                        </td>
 
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex justify-center gap-3">
-                          <button
-                            className="text-blue-600"
-                            onClick={() => {
-                              setEditingHolidayId(h.id);
-                              setEditHoliday(h);
-                            }}
-                          >
-                            Edit
-                          </button>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex justify-center gap-3">
+                            <button
+                              className="text-blue-600"
+                              onClick={() => {
+                                setEditingHolidayId(h.id);
+                                setEditHoliday(h);
+                              }}
+                            >
+                              Edit
+                            </button>
 
-                          <button
-                            className="text-red-600"
-                            onClick={() => deleteHoliday(h.id)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
+                            <button
+                              className="text-red-600"
+                              onClick={() =>
+                                deleteHoliday(h.id)
+                              }
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
