@@ -133,8 +133,8 @@ export default function ReportingPage() {
             return false;
           }
 
-          const start = new Date(l.startDate);
-          const end = new Date(l.endDate);
+          const start = new Date(`${l.startDate}T00:00:00`);
+          const end = new Date(`${l.endDate}T23:59:59`);
 
           return date >= start && date <= end;
         });
