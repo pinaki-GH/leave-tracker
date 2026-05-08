@@ -123,7 +123,13 @@ export default function ReportingPage() {
           day
         );
 
-        const isoDate = date.toISOString().split("T")[0];
+        // FIX: avoid UTC timezone shift
+        const isoDate = `${selectedYear}-${String(
+          monthIndex + 1
+        ).padStart(2, "0")}-${String(day).padStart(
+          2,
+          "0"
+        )}`;
 
         const dayLeaves = leaves.filter(l => {
           if (
