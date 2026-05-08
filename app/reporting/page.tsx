@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getData } from "@/lib/storage";
 import { Leave } from "@/lib/types";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 type Member = {
   id: string;
@@ -39,8 +37,6 @@ const months = [
 
 export default function ReportingPage() {
   const now = new Date();
-
-  const reportRef = useRef<HTMLDivElement>(null);
 
   const [members, setMembers] = useState<Member[]>([]);
   const [leaves, setLeaves] = useState<Leave[]>([]);
@@ -100,54 +96,6 @@ export default function ReportingPage() {
     month: number
   ) => {
     return new Date(year, month, 1).getDay();
-  };
-
-  const downloadPDF = async () => {
-    if (!reportRef.current || selectedMember === "All Members") return;
-
-    const canvas = await html2canvas(reportRef.current, {
-      scale: 2,
-    });
-
-    const imgData = canvas.toDataURL("image/png");
-
-    const pdf = new jsPDF("p", "mm", "a4");
-
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight =
-      (canvas.height * pdfWidth) / canvas.width;
-
-    let heightLeft = pdfHeight;
-    let position = 0;
-
-    pdf.addImage(
-      imgData,
-      "PNG",
-      0,
-      position,
-      pdfWidth,
-      pdfHeight
-    );
-
-    heightLeft -= pdf.internal.pageSize.getHeight();
-
-    while (heightLeft > 0) {
-      position = heightLeft - pdfHeight;
-      pdf.addPage();
-      pdf.addImage(
-        imgData,
-        "PNG",
-        0,
-        position,
-        pdfWidth,
-        pdfHeight
-      );
-      heightLeft -= pdf.internal.pageSize.getHeight();
-    }
-
-    pdf.save(
-      `${selectedMember}-${selectedYear}-calendar.pdf`
-    );
   };
 
   const monthCalendars = useMemo(() => {
@@ -229,19 +177,9 @@ export default function ReportingPage() {
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded shadow">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">
-            Reporting
-          </h1>
-
-          <button
-            onClick={downloadPDF}
-            disabled={selectedMember === "All Members"}
-            className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-300"
-          >
-            Download PDF
-          </button>
-        </div>
+        <h1 className="text-2xl font-bold mb-6">
+          Reporting
+        </h1>
 
         {/* Filters */}
         <div className="flex flex-wrap gap-4 mb-6">
@@ -299,98 +237,96 @@ export default function ReportingPage() {
         </div>
 
         {/* Calendar Grid */}
-        <div ref={reportRef}>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {monthCalendars.map(month => (
-              <div
-                key={month.monthName}
-                className="border rounded overflow-hidden"
-              >
-                {/* Month Header */}
-                <div className="bg-gray-100 px-4 py-3 font-bold text-center">
-                  {month.monthName} {selectedYear}
-                </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {monthCalendars.map(month => (
+            <div
+              key={month.monthName}
+              className="border rounded overflow-hidden"
+            >
+              {/* Month Header */}
+              <div className="bg-gray-100 px-4 py-3 font-bold text-center">
+                {month.monthName} {selectedYear}
+              </div>
 
-                {/* Weekdays */}
-                <div className="grid grid-cols-7 bg-gray-50 text-sm font-medium border-b">
-                  {[
-                    "Sun",
-                    "Mon",
-                    "Tue",
-                    "Wed",
-                    "Thu",
-                    "Fri",
-                    "Sat",
-                  ].map(day => (
-                    <div
-                      key={day}
-                      className="p-2 text-center border-r last:border-r-0"
-                    >
-                      {day}
-                    </div>
-                  ))}
-                </div>
+              {/* Weekdays */}
+              <div className="grid grid-cols-7 bg-gray-50 text-sm font-medium border-b">
+                {[
+                  "Sun",
+                  "Mon",
+                  "Tue",
+                  "Wed",
+                  "Thu",
+                  "Fri",
+                  "Sat",
+                ].map(day => (
+                  <div
+                    key={day}
+                    className="p-2 text-center border-r last:border-r-0"
+                  >
+                    {day}
+                  </div>
+                ))}
+              </div>
 
-                {/* Days */}
-                <div className="grid grid-cols-7">
-                  {month.calendarDays.map((d, idx) => {
-                    if (!d) {
-                      return (
-                        <div
-                          key={idx}
-                          className="min-h-[120px] border-r border-b bg-gray-50"
-                        />
-                      );
-                    }
-
+              {/* Days */}
+              <div className="grid grid-cols-7">
+                {month.calendarDays.map((d, idx) => {
+                  if (!d) {
                     return (
                       <div
                         key={idx}
-                        className="min-h-[120px] border-r border-b p-1 text-xs"
-                      >
-                        {/* Day Number */}
-                        <div className="font-semibold mb-1">
-                          {d.day}
-                        </div>
-
-                        {/* Holidays */}
-                        {d.holidays.map((h: Holiday) => (
-                          <div
-                            key={h.id}
-                            className="bg-red-200 text-red-800 rounded px-1 py-0.5 mb-1"
-                          >
-                            {h.name}
-                          </div>
-                        ))}
-
-                        {/* Leaves */}
-                        {d.leaves.map((l: Leave) => (
-                          <div
-                            key={l.id}
-                            className={`rounded px-1 py-0.5 mb-1 ${
-                              l.status === "Confirmed"
-                                ? "bg-green-200 text-green-800"
-                                : "bg-yellow-200 text-yellow-800"
-                            }`}
-                          >
-                            <div className="font-medium">
-                              {l.memberName}
-                            </div>
-
-                            <div>{l.leaveType}</div>
-
-                            <div className="text-[10px]">
-                              {l.status}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                        className="min-h-[120px] border-r border-b bg-gray-50"
+                      />
                     );
-                  })}
-                </div>
+                  }
+
+                  return (
+                    <div
+                      key={idx}
+                      className="min-h-[120px] border-r border-b p-1 text-xs"
+                    >
+                      {/* Day Number */}
+                      <div className="font-semibold mb-1">
+                        {d.day}
+                      </div>
+
+                      {/* Holidays */}
+                      {d.holidays.map((h: Holiday) => (
+                        <div
+                          key={h.id}
+                          className="bg-red-200 text-red-800 rounded px-1 py-0.5 mb-1"
+                        >
+                          🎉 {h.name}
+                        </div>
+                      ))}
+
+                      {/* Leaves */}
+                      {d.leaves.map((l: Leave) => (
+                        <div
+                          key={l.id}
+                          className={`rounded px-1 py-0.5 mb-1 ${
+                            l.status === "Confirmed"
+                              ? "bg-green-200 text-green-800"
+                              : "bg-yellow-200 text-yellow-800"
+                          }`}
+                        >
+                          <div className="font-medium">
+                            {l.memberName}
+                          </div>
+
+                          <div>{l.leaveType}</div>
+
+                          <div className="text-[10px]">
+                            {l.status}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
