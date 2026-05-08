@@ -123,7 +123,6 @@ export default function ReportingPage() {
           day
         );
 
-        // FIX: avoid UTC timezone shift
         const isoDate = `${selectedYear}-${String(
           monthIndex + 1
         ).padStart(2, "0")}-${String(day).padStart(
@@ -201,6 +200,11 @@ export default function ReportingPage() {
             break-inside: avoid;
             page-break-inside: avoid;
           }
+
+          .print-legend-box {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
         }
       `}</style>
 
@@ -277,17 +281,17 @@ export default function ReportingPage() {
         {/* Legend */}
         <div className="flex flex-wrap gap-4 mb-6 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-yellow-200 border"></div>
+            <div className="w-4 h-4 rounded border bg-yellow-200 print-legend-box"></div>
             <span>Planned Leave</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-green-200 border"></div>
+            <div className="w-4 h-4 rounded border bg-green-200 print-legend-box"></div>
             <span>Confirmed Leave</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-red-200 border"></div>
+            <div className="w-4 h-4 rounded border bg-red-200 print-legend-box"></div>
             <span>Company Holiday</span>
           </div>
         </div>
