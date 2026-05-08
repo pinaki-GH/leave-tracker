@@ -296,7 +296,7 @@ export default function ReportingPage() {
                           key={h.id}
                           className="bg-red-200 text-red-800 rounded px-1 py-0.5 mb-1"
                         >
-                          🎉 {h.name}
+                          {h.name}
                         </div>
                       ))}
 
