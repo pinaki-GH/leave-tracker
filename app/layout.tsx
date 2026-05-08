@@ -15,6 +15,7 @@ export default function RootLayout({
     { label: "Consolidated Leaves", href: "/calendar" },
     { label: "Invoicing Tracker", href: "/summary" },
     { label: "Master Data", href: "/members" },
+    { label: "Reporting", href: "/reporting" },
   ];
 
   return (
@@ -26,7 +27,7 @@ export default function RootLayout({
               Team Leave Tracker
             </h1>
 
-            <nav className="flex gap-2">
+            <nav className="flex gap-2 flex-wrap">
               {tabs.map(tab => {
                 const isActive =
                   pathname === tab.href ||
