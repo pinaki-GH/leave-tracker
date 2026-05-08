@@ -212,6 +212,25 @@ export default function ReportingPage() {
           </button>
         </div>
 
+        {/* Print Header */}
+        <div className="hidden print:block mb-6">
+          <h2 className="text-2xl font-bold">
+            Yearly Leave Plan
+          </h2>
+
+          <div className="mt-2 text-base">
+            <div>
+              <span className="font-semibold">Team Member:</span>{" "}
+              {selectedMember}
+            </div>
+
+            <div>
+              <span className="font-semibold">Year:</span>{" "}
+              {selectedYear}
+            </div>
+          </div>
+        </div>
+
         {/* Filters */}
         <div className="no-print flex flex-wrap gap-4 mb-6">
           <select
