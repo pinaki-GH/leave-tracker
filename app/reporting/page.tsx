@@ -176,13 +176,44 @@ export default function ReportingPage() {
 
   return (
     <div className="space-y-6">
+      {/* Print Styles */}
+      <style jsx global>{`
+        @media print {
+          body {
+            background: white !important;
+          }
+
+          .no-print {
+            display: none !important;
+          }
+
+          .print-grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+
+          .print-month {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        }
+      `}</style>
+
       <div className="bg-white p-6 rounded shadow">
-        <h1 className="text-2xl font-bold mb-6">
-          Reporting
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">
+            Reporting
+          </h1>
+
+          <button
+            onClick={() => window.print()}
+            className="no-print bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Print / Save PDF
+          </button>
+        </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-4 mb-6">
+        <div className="no-print flex flex-wrap gap-4 mb-6">
           <select
             value={selectedYear}
             onChange={e =>
@@ -237,11 +268,11 @@ export default function ReportingPage() {
         </div>
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 print-grid">
           {monthCalendars.map(month => (
             <div
               key={month.monthName}
-              className="border rounded overflow-hidden"
+              className="border rounded overflow-hidden print-month"
             >
               {/* Month Header */}
               <div className="bg-gray-100 px-4 py-3 font-bold text-center">
