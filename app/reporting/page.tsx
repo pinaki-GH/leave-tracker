@@ -50,6 +50,11 @@ export default function ReportingPage() {
     "All Members"
   );
 
+  // NEW FILTER STATES
+  const [showPlannedLeaves, setShowPlannedLeaves] = useState(true);
+  const [showConfirmedLeaves, setShowConfirmedLeaves] = useState(true);
+  const [showCompanyHolidays, setShowCompanyHolidays] = useState(true);
+
   useEffect(() => {
     setMembers((getData("members") as Member[]) || []);
     setLeaves((getData("leaves") as Leave[]) || []);
@@ -138,6 +143,21 @@ export default function ReportingPage() {
             return false;
           }
 
+          // FILTER LOGIC
+          if (
+            l.status === "Planned" &&
+            !showPlannedLeaves
+          ) {
+            return false;
+          }
+
+          if (
+            l.status === "Confirmed" &&
+            !showConfirmedLeaves
+          ) {
+            return false;
+          }
+
           const start = new Date(`${l.startDate}T00:00:00`);
           const end = new Date(`${l.endDate}T23:59:59`);
 
@@ -146,7 +166,10 @@ export default function ReportingPage() {
 
         let dayHolidays: Holiday[] = [];
 
-        if (selectedMemberData) {
+        if (
+          selectedMemberData &&
+          showCompanyHolidays
+        ) {
           dayHolidays = holidays.filter(h => {
             return (
               h.organization ===
@@ -177,6 +200,9 @@ export default function ReportingPage() {
     selectedMember,
     selectedMemberData,
     selectedYear,
+    showPlannedLeaves,
+    showConfirmedLeaves,
+    showCompanyHolidays,
   ]);
 
   return (
@@ -271,6 +297,9 @@ export default function ReportingPage() {
             onClick={() => {
               setSelectedYear(now.getFullYear());
               setSelectedMember("All Members");
+              setShowPlannedLeaves(true);
+              setShowConfirmedLeaves(true);
+              setShowCompanyHolidays(true);
             }}
             className="border px-4 py-2 rounded"
           >
@@ -278,22 +307,49 @@ export default function ReportingPage() {
           </button>
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap gap-4 mb-6 text-sm">
-          <div className="flex items-center gap-2">
+        {/* Legend Filters */}
+        <div className="flex flex-wrap gap-6 mb-6 text-sm">
+          <button
+            onClick={() =>
+              setShowPlannedLeaves(prev => !prev)
+            }
+            className={`flex items-center gap-2 border rounded px-3 py-2 transition-colors ${
+              showPlannedLeaves
+                ? "bg-yellow-50 border-yellow-300"
+                : "bg-gray-100 border-gray-200 opacity-60"
+            }`}
+          >
             <div className="w-4 h-4 rounded border bg-yellow-200 print-legend-box"></div>
             <span>Planned Leave</span>
-          </div>
+          </button>
 
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() =>
+              setShowConfirmedLeaves(prev => !prev)
+            }
+            className={`flex items-center gap-2 border rounded px-3 py-2 transition-colors ${
+              showConfirmedLeaves
+                ? "bg-green-50 border-green-300"
+                : "bg-gray-100 border-gray-200 opacity-60"
+            }`}
+          >
             <div className="w-4 h-4 rounded border bg-green-200 print-legend-box"></div>
             <span>Confirmed Leave</span>
-          </div>
+          </button>
 
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() =>
+              setShowCompanyHolidays(prev => !prev)
+            }
+            className={`flex items-center gap-2 border rounded px-3 py-2 transition-colors ${
+              showCompanyHolidays
+                ? "bg-red-50 border-red-300"
+                : "bg-gray-100 border-gray-200 opacity-60"
+            }`}
+          >
             <div className="w-4 h-4 rounded border bg-red-200 print-legend-box"></div>
             <span>Company Holiday</span>
-          </div>
+          </button>
         </div>
 
         {/* Calendar Grid */}
@@ -303,12 +359,10 @@ export default function ReportingPage() {
               key={month.monthName}
               className="border rounded overflow-hidden print-month"
             >
-              {/* Month Header */}
               <div className="bg-gray-100 px-4 py-3 font-bold text-center">
                 {month.monthName} {selectedYear}
               </div>
 
-              {/* Weekdays */}
               <div className="grid grid-cols-7 bg-gray-50 text-sm font-medium border-b">
                 {[
                   "Sun",
@@ -328,7 +382,6 @@ export default function ReportingPage() {
                 ))}
               </div>
 
-              {/* Days */}
               <div className="grid grid-cols-7">
                 {month.calendarDays.map((d, idx) => {
                   if (!d) {
@@ -345,12 +398,10 @@ export default function ReportingPage() {
                       key={idx}
                       className="min-h-[120px] border-r border-b p-1 text-xs"
                     >
-                      {/* Day Number */}
                       <div className="font-semibold mb-1">
                         {d.day}
                       </div>
 
-                      {/* Holidays */}
                       {d.holidays.map((h: Holiday) => (
                         <div
                           key={h.id}
@@ -360,7 +411,6 @@ export default function ReportingPage() {
                         </div>
                       ))}
 
-                      {/* Leaves */}
                       {d.leaves.map((l: Leave) => (
                         <div
                           key={l.id}
