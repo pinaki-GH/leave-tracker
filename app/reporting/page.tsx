@@ -158,6 +158,11 @@ export default function ReportingPage() {
             return false;
           }
 
+          // Hide all leaves when Holiday filter is active
+          if (activeLegendFilter === "Holiday") {
+            return false;
+          }
+
           const start = new Date(`${l.startDate}T00:00:00`);
           const end = new Date(`${l.endDate}T23:59:59`);
 
