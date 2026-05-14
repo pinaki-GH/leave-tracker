@@ -50,10 +50,10 @@ export default function ReportingPage() {
     "All Members"
   );
 
-  // NEW FILTER STATES
-  const [showPlannedLeaves, setShowPlannedLeaves] = useState(true);
-  const [showConfirmedLeaves, setShowConfirmedLeaves] = useState(true);
-  const [showCompanyHolidays, setShowCompanyHolidays] = useState(true);
+  // LEGEND FILTER STATES
+  const [activeLegendFilter, setActiveLegendFilter] = useState<
+    "All" | "Planned" | "Confirmed" | "Holiday"
+  >("All");
 
   useEffect(() => {
     setMembers((getData("members") as Member[]) || []);
@@ -145,15 +145,15 @@ export default function ReportingPage() {
 
           // FILTER LOGIC
           if (
-            l.status === "Planned" &&
-            !showPlannedLeaves
+            activeLegendFilter === "Planned" &&
+            l.status !== "Planned"
           ) {
             return false;
           }
 
           if (
-            l.status === "Confirmed" &&
-            !showConfirmedLeaves
+            activeLegendFilter === "Confirmed" &&
+            l.status !== "Confirmed"
           ) {
             return false;
           }
@@ -168,7 +168,8 @@ export default function ReportingPage() {
 
         if (
           selectedMemberData &&
-          showCompanyHolidays
+          (activeLegendFilter === "All" ||
+            activeLegendFilter === "Holiday")
         ) {
           dayHolidays = holidays.filter(h => {
             return (
@@ -200,9 +201,7 @@ export default function ReportingPage() {
     selectedMember,
     selectedMemberData,
     selectedYear,
-    showPlannedLeaves,
-    showConfirmedLeaves,
-    showCompanyHolidays,
+    activeLegendFilter,
   ]);
 
   return (
@@ -297,9 +296,7 @@ export default function ReportingPage() {
             onClick={() => {
               setSelectedYear(now.getFullYear());
               setSelectedMember("All Members");
-              setShowPlannedLeaves(true);
-              setShowConfirmedLeaves(true);
-              setShowCompanyHolidays(true);
+              setActiveLegendFilter("All");
             }}
             className="border px-4 py-2 rounded"
           >
@@ -311,12 +308,14 @@ export default function ReportingPage() {
         <div className="flex flex-wrap gap-6 mb-6 text-sm">
           <button
             onClick={() =>
-              setShowPlannedLeaves(prev => !prev)
+              setActiveLegendFilter(prev =>
+                prev === "Planned" ? "All" : "Planned"
+              )
             }
             className={`flex items-center gap-2 border rounded px-3 py-2 transition-colors ${
-              showPlannedLeaves
+              activeLegendFilter === "Planned"
                 ? "bg-yellow-50 border-yellow-300"
-                : "bg-gray-100 border-gray-200 opacity-60"
+                : "bg-gray-100 border-gray-200"
             }`}
           >
             <div className="w-4 h-4 rounded border bg-yellow-200 print-legend-box"></div>
@@ -325,12 +324,14 @@ export default function ReportingPage() {
 
           <button
             onClick={() =>
-              setShowConfirmedLeaves(prev => !prev)
+              setActiveLegendFilter(prev =>
+                prev === "Confirmed" ? "All" : "Confirmed"
+              )
             }
             className={`flex items-center gap-2 border rounded px-3 py-2 transition-colors ${
-              showConfirmedLeaves
+              activeLegendFilter === "Confirmed"
                 ? "bg-green-50 border-green-300"
-                : "bg-gray-100 border-gray-200 opacity-60"
+                : "bg-gray-100 border-gray-200"
             }`}
           >
             <div className="w-4 h-4 rounded border bg-green-200 print-legend-box"></div>
@@ -339,12 +340,14 @@ export default function ReportingPage() {
 
           <button
             onClick={() =>
-              setShowCompanyHolidays(prev => !prev)
+              setActiveLegendFilter(prev =>
+                prev === "Holiday" ? "All" : "Holiday"
+              )
             }
             className={`flex items-center gap-2 border rounded px-3 py-2 transition-colors ${
-              showCompanyHolidays
+              activeLegendFilter === "Holiday"
                 ? "bg-red-50 border-red-300"
-                : "bg-gray-100 border-gray-200 opacity-60"
+                : "bg-gray-100 border-gray-200"
             }`}
           >
             <div className="w-4 h-4 rounded border bg-red-200 print-legend-box"></div>
