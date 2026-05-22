@@ -46,22 +46,58 @@ function getWeekdays(year: number, month: number) {
 
 function getHolidayCount(
   holidays: Holiday[],
-  organization: string,
-  location: string,
+  overrides: any[],
+  member: any,
   year: number,
   month: number
 ) {
-  return holidays.filter(h => {
+  let applicableHolidays = holidays.filter(h => {
     const d = new Date(h.date);
+
     return (
-      h.location === location &&
-      h.organization === organization &&
+      h.location === member.location &&
+      h.organization === member.organization &&
       d.getFullYear() === year &&
       d.getMonth() === month &&
       d.getDay() !== 0 &&
       d.getDay() !== 6
     );
-  }).length;
+  });
+
+  const memberOverrides = overrides.filter(
+    o => o.memberId === member.id
+  );
+
+  // Remove overridden holidays
+  applicableHolidays =
+    applicableHolidays.filter(
+      h =>
+        !memberOverrides.some(
+          o =>
+            o.action === "Remove" &&
+            o.holidayDate === h.date &&
+            o.holidayName === h.name
+        )
+    );
+
+  // Add custom holidays
+  const addedHolidays = memberOverrides
+    .filter(o => o.action === "Add")
+    .filter(o => {
+      const d = new Date(o.holidayDate);
+
+      return (
+        d.getFullYear() === year &&
+        d.getMonth() === month &&
+        d.getDay() !== 0 &&
+        d.getDay() !== 6
+      );
+    });
+
+  return (
+    applicableHolidays.length +
+    addedHolidays.length
+  );
 }
 
 /* ================= COMPONENT ================= */
@@ -78,6 +114,7 @@ export default function SummaryPage() {
   const [approvalMap, setApprovalMap] =
     useState<Record<string, ApprovalStatus>>({});
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [memberHolidayOverrides, setMemberHolidayOverrides] = useState<any[]>([]);
 
   const [month, setMonth] = useState<number | "All">(currentMonth);
   const [year, setYear] = useState(currentYear);
@@ -94,7 +131,7 @@ export default function SummaryPage() {
   useEffect(() => {
     setLeaves((getData("leaves") as Leave[]) || []);
     setMembers((getData("members") as any[]) || []);
-
+    
     const storedHolidays = (getData("companyHolidays") as any[]) || [];
     setHolidays(
       storedHolidays.map(h => ({
@@ -103,6 +140,8 @@ export default function SummaryPage() {
       }))
     );
 
+    setMemberHolidayOverrides(getData("memberHolidayOverrides") || []);
+    
     setLeaveTypes(
       ((getData("leaveTypes") as any[]) || []).map(t => t.name)
     );
@@ -188,12 +227,12 @@ export default function SummaryPage() {
 
       const holidayCount = getHolidayCount(
         holidays,
-        memberObj.organization,
-        memberObj.location,
+        memberHolidayOverrides,
+        memberObj,
         year,
         month
       );
-
+      
       r.totalLeaves += holidayCount;
 
       if (!r.totals["Company Holiday"]) {
@@ -222,11 +261,13 @@ export default function SummaryPage() {
   }, [
     leaves,
     members,
+    memberHolidayOverrides,
     leaveTypes,
     month,
     year,
     approvalMap,
     holidays,
+    memberHolidayOverrides,
     selectedMember,
     selectedOrg,
     selectedManager,
