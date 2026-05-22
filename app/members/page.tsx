@@ -26,11 +26,19 @@ type Holiday = {
   name: string;
 };
 
+type MemberHolidayOverride = {
+  id: string;
+  memberId: string;
+  holidayName: string;
+  holidayDate: string;
+  action: "Add" | "Remove";
+};
+
 /* ================= COMPONENT ================= */
 
 export default function MembersPage() {
   const [activeTab, setActiveTab] = useState<
-    "members" | "leaveTypes" | "holidays"
+  "members" | "leaveTypes" | "holidays" | "customHolidays"
   >("members");
 
   const [members, setMembers] = useState<Member[]>([]);
@@ -66,6 +74,23 @@ export default function MembersPage() {
   const [selectedHolidayLocation, setSelectedHolidayLocation] =
     useState("All Locations");
 
+  const [memberHolidayOverrides, setMemberHolidayOverrides] =
+  useState<MemberHolidayOverride[]>([]);
+
+  const [overrideMemberId, setOverrideMemberId] = useState("");
+  const [overrideHolidayName, setOverrideHolidayName] = useState("");
+  const [overrideHolidayDate, setOverrideHolidayDate] = useState("");
+
+  const [overrideAction, setOverrideAction] = useState<
+    "Add" | "Remove"
+    >("Add");
+
+  const [editingOverrideId, setEditingOverrideId] =
+  useState<string | null>(null);
+
+  const [editOverride, setEditOverride] =
+  useState<Partial<MemberHolidayOverride>>({});
+
   useEffect(() => {
     const storedMembers = (getData("members") as Partial<Member>[]) || [];
 
@@ -89,7 +114,13 @@ export default function MembersPage() {
         organization: h.organization || "",
       }))
     );
-  }, []);
+    setMemberHolidayOverrides(
+    (getData(
+    "memberHolidayOverrides"
+    ) as MemberHolidayOverride[]) || []
+    );
+    
+    }, []);
 
   const saveMembers = (data: Member[]) => {
     setMembers(data);
@@ -106,6 +137,11 @@ export default function MembersPage() {
     saveData("companyHolidays", data);
   };
 
+  const saveOverrides = (data: MemberHolidayOverride[]) => {
+    setMemberHolidayOverrides(data);
+    saveData("memberHolidayOverrides", data);
+  };
+  
   const locations = Array.from(
     new Set([
       ...members.map(m => m.location),
@@ -247,12 +283,73 @@ export default function MembersPage() {
     saveHolidays(holidays.filter(h => h.id !== id));
   };
 
+  /* ================= CUSTOM HOLIDAYS ================= */
+
+const addOverride = () => {
+  if (
+    !overrideMemberId ||
+    !overrideHolidayName ||
+    !overrideHolidayDate
+  )
+    return;
+
+  saveOverrides([
+    ...memberHolidayOverrides,
+    {
+      id: crypto.randomUUID(),
+      memberId: overrideMemberId,
+      holidayName: overrideHolidayName,
+      holidayDate: overrideHolidayDate,
+      action: overrideAction,
+    },
+  ]);
+
+  setOverrideMemberId("");
+  setOverrideHolidayName("");
+  setOverrideHolidayDate("");
+  setOverrideAction("Add");
+};
+
+const updateOverride = () => {
+  if (!editingOverrideId) return;
+
+  saveOverrides(
+    memberHolidayOverrides.map(o =>
+      o.id === editingOverrideId
+        ? {
+            ...o,
+            memberId: editOverride.memberId || "",
+            holidayName:
+              editOverride.holidayName || "",
+            holidayDate:
+              editOverride.holidayDate || "",
+            action:
+              (editOverride.action as
+                | "Add"
+                | "Remove") || "Add",
+          }
+        : o
+    )
+  );
+
+  setEditingOverrideId(null);
+  setEditOverride({});
+};
+
+const deleteOverride = (id: string) => {
+  saveOverrides(
+    memberHolidayOverrides.filter(
+      o => o.id !== id
+    )
+  );
+};
+  
   /* ================= UI ================= */
 
   return (
     <div className="space-y-6">
       <div className="flex gap-4 border-b pb-2">
-        {["members", "leaveTypes", "holidays"].map(tab => (
+        {["members", "leaveTypes", "holidays", "customHolidays",].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab as any)}
@@ -265,6 +362,7 @@ export default function MembersPage() {
             {tab === "members" && "Team Members"}
             {tab === "leaveTypes" && "Leave Types"}
             {tab === "holidays" && "Company Holidays"}
+            {tab === "customHolidays" &&  "Custom Holidays"}
           </button>
         ))}
       </div>
@@ -811,6 +909,317 @@ export default function MembersPage() {
                     )}
                   </tr>
                 ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    
+          {/* CUSTOM HOLIDAYS */}
+      {activeTab === "customHolidays" && (
+        <div className="bg-white p-6 rounded shadow">
+          <h2 className="font-bold mb-4">
+            Custom Holidays
+          </h2>
+
+          <div className="grid md:grid-cols-4 gap-2 mb-4">
+            <select
+              value={overrideMemberId}
+              onChange={e =>
+                setOverrideMemberId(e.target.value)
+              }
+              className="border p-2"
+            >
+              <option value="">
+                Select Team Member
+              </option>
+
+              {members
+                .sort((a, b) =>
+                  a.name.localeCompare(b.name)
+                )
+                .map(m => (
+                  <option
+                    key={m.id}
+                    value={m.id}
+                  >
+                    {m.name}
+                  </option>
+                ))}
+            </select>
+
+            <input
+              placeholder="Holiday Name"
+              value={overrideHolidayName}
+              onChange={e =>
+                setOverrideHolidayName(
+                  e.target.value
+                )
+              }
+              className="border p-2"
+            />
+
+            <input
+              type="date"
+              value={overrideHolidayDate}
+              onChange={e =>
+                setOverrideHolidayDate(
+                  e.target.value
+                )
+              }
+              className="border p-2"
+            />
+
+            <select
+              value={overrideAction}
+              onChange={e =>
+                setOverrideAction(
+                  e.target.value as
+                    | "Add"
+                    | "Remove"
+                )
+              }
+              className="border p-2"
+            >
+              <option value="Add">
+                Add Holiday
+              </option>
+
+              <option value="Remove">
+                Remove Holiday
+              </option>
+            </select>
+          </div>
+
+          <button
+            onClick={addOverride}
+            className="bg-blue-600 text-white px-4 py-2 rounded mb-4"
+          >
+            Add Custom Holiday
+          </button>
+
+          <table className="w-full border border-gray-200 rounded overflow-hidden">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="px-4 py-3 text-left">
+                  Team Member
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  Holiday Name
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  Date
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  Action
+                </th>
+
+                <th className="px-4 py-3 text-center">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {memberHolidayOverrides.map(
+                (o, idx) => {
+                  const member = members.find(
+                    m => m.id === o.memberId
+                  );
+
+                  return (
+                    <tr
+                      key={o.id}
+                      className={
+                        idx % 2 === 0
+                          ? "bg-white"
+                          : "bg-gray-50"
+                      }
+                    >
+                      {editingOverrideId ===
+                      o.id ? (
+                        <>
+                          <td className="px-4 py-3">
+                            <select
+                              value={
+                                editOverride.memberId ||
+                                ""
+                              }
+                              onChange={e =>
+                                setEditOverride({
+                                  ...editOverride,
+                                  memberId:
+                                    e.target.value,
+                                })
+                              }
+                              className="border p-2 w-full"
+                            >
+                              {members.map(m => (
+                                <option
+                                  key={m.id}
+                                  value={m.id}
+                                >
+                                  {m.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <input
+                              value={
+                                editOverride.holidayName ||
+                                ""
+                              }
+                              onChange={e =>
+                                setEditOverride({
+                                  ...editOverride,
+                                  holidayName:
+                                    e.target.value,
+                                })
+                              }
+                              className="border p-2 w-full"
+                            />
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <input
+                              type="date"
+                              value={
+                                editOverride.holidayDate ||
+                                ""
+                              }
+                              onChange={e =>
+                                setEditOverride({
+                                  ...editOverride,
+                                  holidayDate:
+                                    e.target.value,
+                                })
+                              }
+                              className="border p-2 w-full"
+                            />
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <select
+                              value={
+                                editOverride.action ||
+                                "Add"
+                              }
+                              onChange={e =>
+                                setEditOverride({
+                                  ...editOverride,
+                                  action:
+                                    e.target
+                                      .value as
+                                      | "Add"
+                                      | "Remove",
+                                })
+                              }
+                              className="border p-2 w-full"
+                            >
+                              <option value="Add">
+                                Add
+                              </option>
+
+                              <option value="Remove">
+                                Remove
+                              </option>
+                            </select>
+                          </td>
+
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex justify-center gap-3">
+                              <button
+                                onClick={
+                                  updateOverride
+                                }
+                                className="text-blue-600"
+                              >
+                                Save
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setEditingOverrideId(
+                                    null
+                                  );
+
+                                  setEditOverride(
+                                    {}
+                                  );
+                                }}
+                                className="text-gray-500"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3">
+                            {member?.name || "—"}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {o.holidayName}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {o.holidayDate}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-medium ${
+                                o.action ===
+                                "Add"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {o.action}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex justify-center gap-3">
+                              <button
+                                className="text-blue-600"
+                                onClick={() => {
+                                  setEditingOverrideId(
+                                    o.id
+                                  );
+
+                                  setEditOverride(
+                                    o
+                                  );
+                                }}
+                              >
+                                Edit
+                              </button>
+
+                              <button
+                                className="text-red-600"
+                                onClick={() =>
+                                  deleteOverride(
+                                    o.id
+                                  )
+                                }
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                }
+              )}
             </tbody>
           </table>
         </div>
