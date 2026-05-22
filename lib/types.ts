@@ -13,9 +13,32 @@ export type Leave = {
 export type Member = {
   id: string;
   name: string;
+
+  // Existing fields already being used in app
+  organization?: string;
+  location?: string;
+  managedBy?: string;
 };
 
 export type LeaveType = {
   id: string;
   name: string;
+};
+
+// NEW: Member-specific holiday overrides
+export type MemberHolidayOverrideAction =
+  | "Add"
+  | "Remove";
+
+export type MemberHolidayOverride = {
+  id: string;
+
+  // Use stable member ID internally
+  memberId: string;
+
+  holidayName: string;
+
+  holidayDate: string;
+
+  action: MemberHolidayOverrideAction;
 };
