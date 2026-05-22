@@ -86,36 +86,89 @@ export default function CalendarPage() {
 
   /* ---------- VIRTUAL HOLIDAY LEAVES ---------- */
 
-  const holidayLeaves: Leave[] = useMemo(() => {
-    const result: Leave[] = [];
+const holidayLeaves: Leave[] = useMemo(() => {
+  const result: Leave[] = [];
 
-    holidays.forEach(h => {
-      const d = new Date(h.date);
+  const overrides =
+    (getData(
+      "memberHolidayOverrides"
+    ) as {
+      id: string;
+      memberId: string;
+      holidayName: string;
+      holidayDate: string;
+      action: "Add" | "Remove";
+    }[]) || [];
+
+  holidays.forEach(h => {
+    const d = new Date(h.date);
+
+    if (d.getMonth() !== month) return;
+    if (d.getFullYear() !== year) return;
+
+    membersData.forEach((m: any) => {
+      // Standard Org + Location mapping
+      if (
+        m.location !== h.location ||
+        m.organization !== h.organization
+      )
+        return;
+
+      // Find overrides for this member
+      const memberOverrides = overrides.filter(
+        o => o.memberId === m.id
+      );
+
+      // Skip if holiday removed
+      const removed = memberOverrides.some(
+        o =>
+          o.action === "Remove" &&
+          o.holidayDate === h.date &&
+          o.holidayName === h.name
+      );
+
+      if (removed) return;
+
+      result.push({
+        id: `holiday-${h.id}-${m.name}`,
+        memberName: m.name,
+        leaveType: "Company Holiday",
+        ptoDays: 1,
+        startDate: h.date,
+        endDate: h.date,
+        status: "Confirmed",
+      });
+    });
+  });
+
+  // Add custom holidays
+  overrides
+    .filter(o => o.action === "Add")
+    .forEach(o => {
+      const member = membersData.find(
+        (m: any) => m.id === o.memberId
+      );
+
+      if (!member) return;
+
+      const d = new Date(o.holidayDate);
 
       if (d.getMonth() !== month) return;
       if (d.getFullYear() !== year) return;
 
-      membersData.forEach(m => {
-        // ✅ UPDATED MATCHING LOGIC
-        if (
-          m.location !== h.location ||
-          m.organization !== h.organization
-        ) return;
-
-        result.push({
-          id: `holiday-${h.id}-${m.name}`,
-          memberName: m.name,
-          leaveType: "Company Holiday",
-          ptoDays: 1,
-          startDate: h.date,
-          endDate: h.date,
-          status: "Confirmed",
-        });
+      result.push({
+        id: `custom-holiday-${o.id}`,
+        memberName: member.name,
+        leaveType: "Company Holiday",
+        ptoDays: 1,
+        startDate: o.holidayDate,
+        endDate: o.holidayDate,
+        status: "Confirmed",
       });
     });
 
-    return result;
-  }, [holidays, membersData, month, year]);
+  return result;
+}, [holidays, membersData, month, year]);
 
   /* ---------- MERGE LEAVES ---------- */
 
