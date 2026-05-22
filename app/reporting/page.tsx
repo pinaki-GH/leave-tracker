@@ -41,6 +41,7 @@ export default function ReportingPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [memberHolidayOverrides, setMemberHolidayOverrides] = useState<any[]>([]);
 
   const [selectedYear, setSelectedYear] = useState(
     now.getFullYear()
@@ -59,6 +60,7 @@ export default function ReportingPage() {
     setMembers((getData("members") as Member[]) || []);
     setLeaves((getData("leaves") as Leave[]) || []);
     setHolidays((getData("companyHolidays") as Holiday[]) || []);
+    setMemberHolidayOverrides(getData("memberHolidayOverrides") || []);
   }, []);
 
   const years = useMemo(() => {
@@ -177,14 +179,35 @@ export default function ReportingPage() {
             activeLegendFilter === "Holiday")
         ) {
           dayHolidays = holidays.filter(h => {
+            const memberOverrides =
+              memberHolidayOverrides.filter(
+                o => o.memberId === selectedMemberData.id
+              );
+
+            // Remove overridden standard holidays
+            const removed = memberOverrides.some(
+              o =>
+                o.action === "Remove" && o.holidayDate === h.date && o.holidayName === h.name
+            );
+
+            if (removed) return false;
+
             return (
-              h.organization ===
-                selectedMemberData.organization &&
-              h.location ===
-                selectedMemberData.location &&
-              h.date === isoDate
+              h.organization === selectedMemberData.organization && h.location === selectedMemberData.location && h.date === isoDate
             );
           });
+
+          const customAddedHolidays =
+            memberHolidayOverrides.filter(o => o.memberId === selectedMemberData.id && o.action === "Add" && o.holidayDate === isoDate)
+              .map(o => ({
+              id: o.id,
+              name: o.holidayName,
+              date: o.holidayDate,
+              }));
+
+          dayHolidays = [...dayHolidays,...customAddedHolidays,
+          ];
+          
         }
 
         calendarDays.push({
@@ -203,6 +226,7 @@ export default function ReportingPage() {
   }, [
     leaves,
     holidays,
+    memberHolidayOverrides,
     selectedMember,
     selectedMemberData,
     selectedYear,
