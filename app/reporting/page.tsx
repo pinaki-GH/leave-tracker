@@ -203,8 +203,12 @@ export default function ReportingPage() {
               id: o.id,
               name: o.holidayName,
               date: o.holidayDate,
-              }));
-
+              organization:
+              selectedMemberData.organization,
+              location:
+              selectedMemberData.location,
+            }));
+          
           dayHolidays = [...dayHolidays,...customAddedHolidays,
           ];
           
