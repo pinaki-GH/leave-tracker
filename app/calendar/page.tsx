@@ -30,6 +30,7 @@ export default function CalendarPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [membersData, setMembersData] = useState<Member[]>([]);
+  const [memberHolidayOverrides, setMemberHolidayOverrides] = useState<any[]>([]);
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
 
   const now = new Date();
@@ -55,6 +56,8 @@ export default function CalendarPage() {
     );
 
     setMembersData(getData("members") || []);
+    setMemberHolidayOverrides(getData("memberHolidayOverrides") || []);
+    
   }, []);
 
   /* ---------- CRUD ---------- */
@@ -89,17 +92,8 @@ export default function CalendarPage() {
 const holidayLeaves: Leave[] = useMemo(() => {
   const result: Leave[] = [];
 
-  const overrides =
-    (getData(
-      "memberHolidayOverrides"
-    ) as {
-      id: string;
-      memberId: string;
-      holidayName: string;
-      holidayDate: string;
-      action: "Add" | "Remove";
-    }[]) || [];
-
+  const overrides = memberHolidayOverrides;
+  
   holidays.forEach(h => {
     const d = new Date(h.date);
 
@@ -168,7 +162,7 @@ const holidayLeaves: Leave[] = useMemo(() => {
     });
 
   return result;
-}, [holidays, membersData, month, year]);
+}, [holidays, membersData, memberHolidayOverrides, month, year,]);
 
   /* ---------- MERGE LEAVES ---------- */
 
