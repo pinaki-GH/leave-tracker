@@ -15,9 +15,12 @@ type Holiday = {
 };
 
 type Member = {
+  id: string;
   name: string;
   organization: string; // ✅ ADDED
   location: string;
+  projectStartDate?: string;
+  lastWorkingDay?: string;
 };
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -108,6 +111,19 @@ const holidayLeaves: Leave[] = useMemo(() => {
       )
         return;
 
+      // Skip if member was not on the project on this date
+      if (
+        m.projectStartDate &&
+        h.date < m.projectStartDate
+      )
+        return;
+
+      if (
+        m.lastWorkingDay &&
+        h.date > m.lastWorkingDay
+      )
+        return;
+
       // Find overrides for this member
       const memberOverrides = overrides.filter(
         o => o.memberId === m.id
@@ -145,6 +161,18 @@ const holidayLeaves: Leave[] = useMemo(() => {
 
       if (!member) return;
 
+      if (
+        member.projectStartDate &&
+        o.holidayDate < member.projectStartDate
+      )
+        return;
+
+      if (
+        member.lastWorkingDay &&
+        o.holidayDate > member.lastWorkingDay
+      )
+        return;
+
       const d = new Date(o.holidayDate);
 
       if (d.getMonth() !== month) return;
@@ -178,6 +206,29 @@ const holidayLeaves: Leave[] = useMemo(() => {
 
       if (d.getMonth() !== month) return false;
       if (d.getFullYear() !== year) return false;
+
+      if (l.leaveType !== "Company Holiday") {
+        const member = membersData.find(
+          (m: any) => m.name === l.memberName
+        );
+
+        if (member) {
+          const leaveStart = new Date(l.startDate);
+          const leaveEnd = new Date(l.endDate);
+
+          if (
+            member.projectStartDate &&
+            leaveEnd < new Date(member.projectStartDate)
+          )
+            return false;
+
+          if (
+            member.lastWorkingDay &&
+            leaveStart > new Date(member.lastWorkingDay)
+          )
+            return false;
+        }
+      }
       if (selectedMember !== "All" && l.memberName !== selectedMember)
         return false;
       if (selectedLeaveType !== "All" && l.leaveType !== selectedLeaveType)
@@ -216,8 +267,32 @@ const holidayLeaves: Leave[] = useMemo(() => {
     const map: Record<number, Leave[]> = {};
 
     filteredLeaves.forEach(l => {
+      const member = membersData.find(
+        (m: any) => m.name === l.memberName
+      );
+
       const start = new Date(l.startDate);
       const end = new Date(l.endDate);
+
+      if (member?.projectStartDate) {
+        const projectStart = new Date(
+          member.projectStartDate
+        );
+
+        if (start < projectStart) {
+          start.setTime(projectStart.getTime());
+        }
+      }
+
+      if (member?.lastWorkingDay) {
+        const projectEnd = new Date(
+          member.lastWorkingDay
+        );
+
+        if (end > projectEnd) {
+          end.setTime(projectEnd.getTime());
+        }
+      }
 
       const current = new Date(
         start.getFullYear(),
@@ -239,7 +314,7 @@ const holidayLeaves: Leave[] = useMemo(() => {
     });
 
     return map;
-  }, [filteredLeaves, month, year]);
+  }, [filteredLeaves, membersData, month, year]);
 
   /* ---------- Filter Options ---------- */
 
