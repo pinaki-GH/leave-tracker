@@ -262,11 +262,17 @@ export default function ReportingPage() {
           
         }
 
+        const isLastWorkingDay =
+          selectedMember !== "All Members" &&
+          !!selectedMemberData?.lastWorkingDay &&
+          isoDate === selectedMemberData.lastWorkingDay;
+
         calendarDays.push({
           day,
           date: isoDate,
           leaves: dayLeaves,
           holidays: dayHolidays,
+          isLastWorkingDay,
         });
       }
 
@@ -434,6 +440,14 @@ export default function ReportingPage() {
             <div className="w-4 h-4 rounded border bg-red-200 print-legend-box"></div>
             <span>Company Holiday</span>
           </button>
+
+          {selectedMember !== "All Members" &&
+            selectedMemberData?.lastWorkingDay && (
+              <div className="flex items-center gap-2 border rounded px-3 py-2 bg-gray-100">
+                <div className="w-4 h-4 rounded border-2 border-blue-600 bg-white print-legend-box"></div>
+                <span>Last Working Day</span>
+              </div>
+            )}
         </div>
 
         {/* Calendar Grid */}
@@ -480,7 +494,11 @@ export default function ReportingPage() {
                   return (
                     <div
                       key={idx}
-                      className="min-h-[120px] border-r border-b p-1 text-xs"
+                      className={`min-h-[120px] border-r border-b p-1 text-xs ${
+                        d.isLastWorkingDay
+                          ? "border-2 border-blue-600"
+                          : ""
+                      }`}
                     >
                       <div className="font-semibold mb-1">
                         {d.day}
