@@ -60,7 +60,9 @@ function getHolidayCount(
       d.getFullYear() === year &&
       d.getMonth() === month &&
       d.getDay() !== 0 &&
-      d.getDay() !== 6
+      d.getDay() !== 6 &&
+      (!member.projectStartDate || h.date >= member.projectStartDate) &&
+      (!member.lastWorkingDay || h.date <= member.lastWorkingDay)
     );
   });
 
@@ -90,7 +92,11 @@ function getHolidayCount(
         d.getFullYear() === year &&
         d.getMonth() === month &&
         d.getDay() !== 0 &&
-        d.getDay() !== 6
+        d.getDay() !== 6 &&
+        (!member.projectStartDate ||
+          o.holidayDate >= member.projectStartDate) &&
+        (!member.lastWorkingDay ||
+          o.holidayDate <= member.lastWorkingDay)
       );
     });
 
@@ -214,6 +220,27 @@ export default function SummaryPage() {
 
       if (!row) return;
 
+      const memberObj = members.find(m => m.name === l.memberName);
+
+      if (memberObj) {
+        const leaveStart = new Date(l.startDate);
+        const leaveEnd = new Date(l.endDate);
+
+        if (
+          memberObj.projectStartDate &&
+          leaveEnd < new Date(memberObj.projectStartDate)
+        ) {
+          return;
+        }
+
+        if (
+          memberObj.lastWorkingDay &&
+          leaveStart > new Date(memberObj.lastWorkingDay)
+        ) {
+          return;
+        }
+      }
+
       row.totals[l.leaveType] += l.ptoDays;
       row.totalLeaves += l.ptoDays;
     });
@@ -245,7 +272,39 @@ export default function SummaryPage() {
     rows.forEach(r => {
       if (month === "All") return;
 
-      const weekdays = getWeekdays(year, month);
+      const memberObj = members.find(m => m.name === r.member);
+
+      if (!memberObj) return;
+
+      let weekdays = 0;
+      const date = new Date(year, month, 1);
+
+      while (date.getMonth() === month) {
+        const day = date.getDay();
+
+        if (day !== 0 && day !== 6) {
+          const isoDate =
+            `${date.getFullYear()}-${String(
+              date.getMonth() + 1
+            ).padStart(2, "0")}-${String(
+              date.getDate()
+            ).padStart(2, "0")}`;
+
+          const withinStart =
+            !memberObj.projectStartDate ||
+            isoDate >= memberObj.projectStartDate;
+
+          const withinEnd =
+            !memberObj.lastWorkingDay ||
+            isoDate <= memberObj.lastWorkingDay;
+
+          if (withinStart && withinEnd) {
+            weekdays++;
+          }
+        }
+
+        date.setDate(date.getDate() + 1);
+      }
 
       r.workingDays = weekdays;
 
@@ -267,7 +326,6 @@ export default function SummaryPage() {
     year,
     approvalMap,
     holidays,
-    memberHolidayOverrides,
     selectedMember,
     selectedOrg,
     selectedManager,
@@ -304,9 +362,48 @@ export default function SummaryPage() {
     ).sort(),
   ];
 
+  const selectedMemberObj =
+    selectedMember === "All Members"
+      ? null
+      : members.find(m => m.name === selectedMember);
+
   const totalWorkingDays =
     month === "All"
       ? null
+      : selectedMemberObj
+      ? (() => {
+          let count = 0;
+          const date = new Date(year, month, 1);
+
+          while (date.getMonth() === month) {
+            const day = date.getDay();
+
+            if (day !== 0 && day !== 6) {
+              const isoDate =
+                `${date.getFullYear()}-${String(
+                  date.getMonth() + 1
+                ).padStart(2, "0")}-${String(
+                  date.getDate()
+                ).padStart(2, "0")}`;
+
+              const withinStart =
+                !selectedMemberObj.projectStartDate ||
+                isoDate >= selectedMemberObj.projectStartDate;
+
+              const withinEnd =
+                !selectedMemberObj.lastWorkingDay ||
+                isoDate <= selectedMemberObj.lastWorkingDay;
+
+              if (withinStart && withinEnd) {
+                count++;
+              }
+            }
+
+            date.setDate(date.getDate() + 1);
+          }
+
+          return count;
+        })()
       : getWeekdays(year, month);
 
   return (
