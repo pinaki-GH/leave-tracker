@@ -9,6 +9,14 @@ import { getData, saveData } from "@/lib/storage";
 export default function Home() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
+  const [members, setMembers] = useState<
+    {
+      id: string;
+      name: string;
+      projectStartDate?: string;
+      lastWorkingDay?: string;
+    }[]
+  >([]);
 
   // Default current month/year
   const now = new Date();
@@ -24,15 +32,55 @@ export default function Home() {
 
   useEffect(() => {
     setLeaves(getData("leaves"));
+    setMembers(getData("members") || []);
   }, []);
 
+  const isLeaveWithinProjectPeriod = (leave: Leave) => {
+    const member = members.find(m => m.name === leave.memberName);
+
+    if (!member) return true;
+
+    const leaveStart = new Date(leave.startDate);
+    const leaveEnd = new Date(leave.endDate);
+
+    if (
+      member.projectStartDate &&
+      leaveEnd < new Date(member.projectStartDate)
+    ) {
+      return false;
+    }
+
+    if (
+      member.lastWorkingDay &&
+      leaveStart > new Date(member.lastWorkingDay)
+    ) {
+      return false;
+    }
+
+    return true;
+  };
+
   const addLeave = (leave: Leave) => {
+    if (!isLeaveWithinProjectPeriod(leave)) {
+      alert(
+        "The selected leave dates are outside the team member's project participation period."
+      );
+      return;
+    }
+
     const updated = [...leaves, leave];
     setLeaves(updated);
     saveData("leaves", updated);
   };
 
   const updateLeave = (updatedLeave: Leave) => {
+    if (!isLeaveWithinProjectPeriod(updatedLeave)) {
+      alert(
+        "The selected leave dates are outside the team member's project participation period."
+      );
+      return;
+    }
+
     const updated = leaves.map(l =>
       l.id === updatedLeave.id ? updatedLeave : l
     );
