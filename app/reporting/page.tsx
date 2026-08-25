@@ -10,6 +10,8 @@ type Member = {
   organization: string;
   location: string;
   managedBy: string;
+  projectStartDate?: string;
+  lastWorkingDay?: string;
 };
 
 type Holiday = {
@@ -165,8 +167,28 @@ export default function ReportingPage() {
             return false;
           }
 
+          const member = members.find(
+            m => m.name === l.memberName
+          );
+
           const start = new Date(`${l.startDate}T00:00:00`);
           const end = new Date(`${l.endDate}T23:59:59`);
+
+          if (member) {
+            if (
+              member.projectStartDate &&
+              end < new Date(`${member.projectStartDate}T00:00:00`)
+            ) {
+              return false;
+            }
+
+            if (
+              member.lastWorkingDay &&
+              start > new Date(`${member.lastWorkingDay}T23:59:59`)
+            ) {
+              return false;
+            }
+          }
 
           return date >= start && date <= end;
         });
@@ -192,22 +214,48 @@ export default function ReportingPage() {
 
             if (removed) return false;
 
+            if (
+              selectedMemberData.projectStartDate &&
+              h.date < selectedMemberData.projectStartDate
+            ) {
+              return false;
+            }
+
+            if (
+              selectedMemberData.lastWorkingDay &&
+              h.date > selectedMemberData.lastWorkingDay
+            ) {
+              return false;
+            }
+
             return (
-              h.organization === selectedMemberData.organization && h.location === selectedMemberData.location && h.date === isoDate
+              h.organization === selectedMemberData.organization &&
+              h.location === selectedMemberData.location &&
+              h.date === isoDate
             );
           });
 
           const customAddedHolidays =
-            memberHolidayOverrides.filter(o => o.memberId === selectedMemberData.id && o.action === "Add" && o.holidayDate === isoDate)
+            memberHolidayOverrides
+              .filter(
+                o =>
+                  o.memberId === selectedMemberData.id &&
+                  o.action === "Add" &&
+                  o.holidayDate === isoDate &&
+                  (!selectedMemberData.projectStartDate ||
+                    o.holidayDate >= selectedMemberData.projectStartDate) &&
+                  (!selectedMemberData.lastWorkingDay ||
+                    o.holidayDate <= selectedMemberData.lastWorkingDay)
+              )
               .map(o => ({
-              id: o.id,
-              name: o.holidayName,
-              date: o.holidayDate,
-              organization:
-              selectedMemberData.organization,
-              location:
-              selectedMemberData.location,
-            }));
+                id: o.id,
+                name: o.holidayName,
+                date: o.holidayDate,
+                organization:
+                  selectedMemberData.organization,
+                location:
+                  selectedMemberData.location,
+              }));
           
           dayHolidays = [...dayHolidays,...customAddedHolidays,
           ];
