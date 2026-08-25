@@ -11,6 +11,8 @@ type Member = {
   organization: string;
   location: string;
   managedBy: string;
+  projectStartDate?: string;
+  lastWorkingDay?: string;
 };
 
 type LeaveType = {
@@ -49,6 +51,8 @@ export default function MembersPage() {
   const [newOrg, setNewOrg] = useState("");
   const [newLocation, setNewLocation] = useState("");
   const [newManagedBy, setNewManagedBy] = useState("");
+  const [newProjectStartDate, setNewProjectStartDate] = useState("");
+  const [newLastWorkingDay, setNewLastWorkingDay] = useState("");
 
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editMember, setEditMember] = useState<Partial<Member>>({});
@@ -101,6 +105,8 @@ export default function MembersPage() {
         organization: m.organization || "",
         location: m.location || "",
         managedBy: m.managedBy || "",
+        projectStartDate: m.projectStartDate || "",
+        lastWorkingDay: m.lastWorkingDay || "",
       }))
     );
 
@@ -164,6 +170,8 @@ export default function MembersPage() {
         organization: newOrg.trim(),
         location: newLocation.trim(),
         managedBy: newManagedBy.trim(),
+        projectStartDate: newProjectStartDate,
+        lastWorkingDay: newLastWorkingDay,
       },
     ]);
 
@@ -171,6 +179,8 @@ export default function MembersPage() {
     setNewOrg("");
     setNewLocation("");
     setNewManagedBy("");
+    setNewProjectStartDate("");
+    setNewLastWorkingDay("");
   };
 
   const updateMember = () => {
@@ -185,6 +195,8 @@ export default function MembersPage() {
               organization: editMember.organization || "",
               location: editMember.location || "",
               managedBy: editMember.managedBy || "",
+              projectStartDate: editMember.projectStartDate || "",
+              lastWorkingDay: editMember.lastWorkingDay || "",
             }
           : m
       )
@@ -372,7 +384,7 @@ const deleteOverride = (id: string) => {
         <div className="bg-white p-6 rounded shadow">
           <h2 className="font-bold mb-4">Team Members</h2>
 
-          <div className="grid md:grid-cols-4 gap-2 mb-4">
+          <div className="grid md:grid-cols-6 gap-2 mb-4">
             <input
               placeholder="Name"
               value={newName}
@@ -405,6 +417,22 @@ const deleteOverride = (id: string) => {
               onChange={e => setNewManagedBy(e.target.value)}
               className="border p-2"
             />
+
+            <input
+              type="date"
+              value={newProjectStartDate}
+              onChange={e => setNewProjectStartDate(e.target.value)}
+              className="border p-2"
+              title="Project Start Date"
+            />
+
+            <input
+              type="date"
+              value={newLastWorkingDay}
+              onChange={e => setNewLastWorkingDay(e.target.value)}
+              className="border p-2"
+              title="Last Working Day"
+            />
           </div>
 
           <button
@@ -421,6 +449,8 @@ const deleteOverride = (id: string) => {
                 <th className="px-4 py-3 text-left">Leave Organization</th>
                 <th className="px-4 py-3 text-left">Work Location</th>
                 <th className="px-4 py-3 text-left">Managed By</th>
+                <th className="px-4 py-3 text-left">Project Start Date</th>
+                <th className="px-4 py-3 text-left">Last Working Day</th>
                 <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
@@ -491,6 +521,34 @@ const deleteOverride = (id: string) => {
                         />
                       </td>
 
+                      <td className="px-4 py-3">
+                        <input
+                          type="date"
+                          value={editMember.projectStartDate || ""}
+                          onChange={e =>
+                            setEditMember({
+                              ...editMember,
+                              projectStartDate: e.target.value,
+                            })
+                          }
+                          className="border p-2 w-full"
+                        />
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <input
+                          type="date"
+                          value={editMember.lastWorkingDay || ""}
+                          onChange={e =>
+                            setEditMember({
+                              ...editMember,
+                              lastWorkingDay: e.target.value,
+                            })
+                          }
+                          className="border p-2 w-full"
+                        />
+                      </td>
+
                       <td className="px-4 py-3 text-center">
                         <div className="flex justify-center gap-3">
                           <button
@@ -526,6 +584,14 @@ const deleteOverride = (id: string) => {
 
                       <td className="px-4 py-3">
                         {m.managedBy || "—"}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {m.projectStartDate || "—"}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {m.lastWorkingDay || "—"}
                       </td>
 
                       <td className="px-4 py-3 text-center">
