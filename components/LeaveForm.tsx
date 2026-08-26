@@ -53,9 +53,20 @@ export default function LeaveForm({
 
     if (end < start) return 1;
 
-    return Math.floor(
-      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
-    ) + 1;
+    let ptoDays = 0;
+    const current = new Date(start);
+
+    while (current <= end) {
+      const day = current.getDay();
+
+      if (day !== 0 && day !== 6) {
+        ptoDays++;
+      }
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    return ptoDays;
   };
 
   const submit = () => {
