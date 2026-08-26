@@ -66,9 +66,14 @@ export default function ReportingPage() {
   }, []);
 
   const years = useMemo(() => {
-    const leaveYears = leaves.map(l =>
-      new Date(l.startDate).getFullYear()
-    );
+    const leaveYears = leaves.flatMap(l => {
+      const startYear = new Date(l.startDate).getFullYear();
+      const endYear = new Date(l.endDate).getFullYear();
+
+      return startYear === endYear
+        ? [startYear]
+        : [startYear, endYear];
+    });
 
     const holidayYears = holidays.map(h =>
       new Date(h.date).getFullYear()
@@ -190,7 +195,14 @@ export default function ReportingPage() {
             }
           }
 
-          return date >= start && date <= end;
+          const dayOfWeek = date.getDay();
+
+          return (
+            dayOfWeek !== 0 &&
+            dayOfWeek !== 6 &&
+            date >= start &&
+            date <= end
+          );
         });
 
         let dayHolidays: Holiday[] = [];
