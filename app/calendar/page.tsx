@@ -202,10 +202,14 @@ const holidayLeaves: Leave[] = useMemo(() => {
 
   const filteredLeaves = useMemo(() => {
     return allLeaves.filter(l => {
-      const d = new Date(l.startDate);
+      const monthStart = new Date(year, month, 1);
+      const monthEnd = new Date(year, month + 1, 0);
+      const leaveStart = new Date(l.startDate);
+      const leaveEnd = new Date(l.endDate);
 
-      if (d.getMonth() !== month) return false;
-      if (d.getFullYear() !== year) return false;
+      if (leaveEnd < monthStart || leaveStart > monthEnd) {
+        return false;
+      }
 
       if (l.leaveType !== "Company Holiday") {
         const member = membersData.find(
@@ -331,7 +335,16 @@ const holidayLeaves: Leave[] = useMemo(() => {
   );
 
   const years = Array.from(
-    new Set(allLeaves.map(l => new Date(l.startDate).getFullYear()))
+    new Set(
+      allLeaves.flatMap(l => {
+        const startYear = new Date(l.startDate).getFullYear();
+        const endYear = new Date(l.endDate).getFullYear();
+
+        return startYear === endYear
+          ? [startYear]
+          : [startYear, endYear];
+      })
+    )
   ).sort();
 
   /* ---------- UI ---------- */
