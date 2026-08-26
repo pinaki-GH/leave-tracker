@@ -45,6 +45,19 @@ export default function LeaveForm({
     }
   }, [editingLeave]);
 
+  const calculatePtoDays = (startDate: string, endDate: string) => {
+    if (!startDate || !endDate) return 1;
+
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+
+    if (end < start) return 1;
+
+    return Math.floor(
+      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+    ) + 1;
+  };
+
   const submit = () => {
     if (!form.memberName || !form.leaveType || !form.startDate || !form.endDate)
       return;
@@ -140,7 +153,8 @@ export default function LeaveForm({
             </label>
             <input
               type="number"
-              min={1}
+              min={0.5}
+              step={0.5}
               className="w-full border px-3 py-2 rounded text-sm"
               value={form.ptoDays}
               onChange={e =>
@@ -158,9 +172,17 @@ export default function LeaveForm({
               type="date"
               className="w-full border px-3 py-2 rounded text-sm"
               value={form.startDate}
-              onChange={e =>
-                setForm({ ...form, startDate: e.target.value })
-              }
+              onChange={e => {
+                const startDate = e.target.value;
+                setForm({
+                  ...form,
+                  startDate,
+                  ptoDays: calculatePtoDays(
+                    startDate,
+                    form.endDate
+                  ),
+                });
+              }}
             />
           </div>
 
@@ -173,9 +195,17 @@ export default function LeaveForm({
               type="date"
               className="w-full border px-3 py-2 rounded text-sm"
               value={form.endDate}
-              onChange={e =>
-                setForm({ ...form, endDate: e.target.value })
-              }
+              onChange={e => {
+                const endDate = e.target.value;
+                setForm({
+                  ...form,
+                  endDate,
+                  ptoDays: calculatePtoDays(
+                    form.startDate,
+                    endDate
+                  ),
+                });
+              }}
             />
           </div>
         </div>
