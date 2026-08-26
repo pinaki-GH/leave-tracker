@@ -99,10 +99,23 @@ export default function Home() {
   const filteredLeaves = useMemo(() => {
     return leaves
       .filter(l => {
-        const d = new Date(l.startDate);
+        const monthStart = new Date(
+          selectedYear,
+          selectedMonth,
+          1
+        );
+        const monthEnd = new Date(
+          selectedYear,
+          selectedMonth + 1,
+          0
+        );
+        const leaveStart = new Date(l.startDate);
+        const leaveEnd = new Date(l.endDate);
 
-        if (d.getMonth() !== selectedMonth) return false;
-        if (d.getFullYear() !== selectedYear) return false;
+        if (leaveEnd < monthStart || leaveStart > monthEnd) {
+          return false;
+        }
+
         if (selectedMember !== "All" && l.memberName !== selectedMember)
           return false;
         if (selectedLeaveType !== "All" && l.leaveType !== selectedLeaveType)
