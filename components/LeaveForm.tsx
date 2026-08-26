@@ -42,6 +42,15 @@ export default function LeaveForm({
     if (editingLeave) {
       const { id, ...rest } = editingLeave;
       setForm(rest);
+    } else {
+      setForm({
+        memberName: "",
+        leaveType: "",
+        status: "Planned",
+        ptoDays: 1,
+        startDate: "",
+        endDate: "",
+      });
     }
   }, [editingLeave]);
 
