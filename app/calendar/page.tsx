@@ -301,7 +301,11 @@ const holidayLeaves: Leave[] = useMemo(() => {
       );
 
       while (current <= end) {
+        const dayOfWeek = current.getDay();
+
         if (
+          dayOfWeek !== 0 &&
+          dayOfWeek !== 6 &&
           current.getMonth() === month &&
           current.getFullYear() === year
         ) {
