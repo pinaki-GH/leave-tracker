@@ -55,8 +55,75 @@ export default function LeaveList({
   );
 
   const years = Array.from(
-    new Set(allLeaves.map(l => new Date(l.startDate).getFullYear()))
+    new Set(
+      allLeaves.flatMap(l => {
+        const startYear = new Date(l.startDate).getFullYear();
+        const endYear = new Date(l.endDate).getFullYear();
+
+        return startYear === endYear
+          ? [startYear]
+          : [startYear, endYear];
+      })
+    )
   ).sort();
+
+  const displayLeaves = leaves.map(l => {
+    const monthStart = new Date(
+      selectedYear,
+      selectedMonth,
+      1
+    );
+    const monthEnd = new Date(
+      selectedYear,
+      selectedMonth + 1,
+      0
+    );
+
+    const leaveStart = new Date(`${l.startDate}T00:00:00`);
+    const leaveEnd = new Date(`${l.endDate}T00:00:00`);
+
+    const displayStart =
+      leaveStart > monthStart ? leaveStart : monthStart;
+    const displayEnd =
+      leaveEnd < monthEnd ? leaveEnd : monthEnd;
+
+    let displayPtoDays = 0;
+    const current = new Date(displayStart);
+
+    while (current <= displayEnd) {
+      const day = current.getDay();
+
+      if (day !== 0 && day !== 6) {
+        displayPtoDays++;
+      }
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    // Preserve manually entered PTO values for leaves that
+    // are entirely within the selected month.
+    if (
+      leaveStart >= monthStart &&
+      leaveEnd <= monthEnd
+    ) {
+      displayPtoDays = l.ptoDays;
+    }
+
+    return {
+      ...l,
+      displayStartDate: `${displayStart.getFullYear()}-${String(
+        displayStart.getMonth() + 1
+      ).padStart(2, "0")}-${String(
+        displayStart.getDate()
+      ).padStart(2, "0")}`,
+      displayEndDate: `${displayEnd.getFullYear()}-${String(
+        displayEnd.getMonth() + 1
+      ).padStart(2, "0")}-${String(
+        displayEnd.getDate()
+      ).padStart(2, "0")}`,
+      displayPtoDays,
+    };
+  });
 
   return (
     <div className="bg-white p-6 rounded shadow">
@@ -150,7 +217,7 @@ export default function LeaveList({
         </thead>
 
         <tbody>
-          {leaves.map(l => (
+          {displayLeaves.map(l => (
             <tr key={l.id}>
               <td className="border p-2 text-left">{l.memberName}</td>
               <td className="border p-2 text-center">{l.leaveType}</td>
@@ -165,9 +232,9 @@ export default function LeaveList({
                   {l.status}
                 </span>
               </td>
-              <td className="border p-2 text-center">{l.ptoDays}</td>
-              <td className="border p-2 text-center">{l.startDate}</td>
-              <td className="border p-2 text-center">{l.endDate}</td>
+              <td className="border p-2 text-center">{l.displayPtoDays}</td>
+              <td className="border p-2 text-center">{l.displayStartDate}</td>
+              <td className="border p-2 text-center">{l.displayEndDate}</td>
               <td className="border p-2 text-center space-x-2">
                 <button
                   className="text-blue-600 hover:underline"
