@@ -211,10 +211,22 @@ export default function SummaryPage() {
     leaves.forEach(l => {
       if (l.status !== "Confirmed") return;
 
-      const d = new Date(l.startDate);
+      const leaveStart = new Date(`${l.startDate}T00:00:00`);
+      const leaveEnd = new Date(`${l.endDate}T00:00:00`);
 
-      if (month !== "All" && d.getMonth() !== month) return;
-      if (d.getFullYear() !== year) return;
+      if (month !== "All") {
+        const monthStart = new Date(year, month, 1);
+        const monthEnd = new Date(year, month + 1, 0);
+
+        if (leaveEnd < monthStart || leaveStart > monthEnd) {
+          return;
+        }
+      } else if (
+        leaveEnd.getFullYear() < year ||
+        leaveStart.getFullYear() > year
+      ) {
+        return;
+      }
 
       const row = rows.find(r => r.member === l.memberName);
 
@@ -222,27 +234,68 @@ export default function SummaryPage() {
 
       const memberObj = members.find(m => m.name === l.memberName);
 
-      if (memberObj) {
-        const leaveStart = new Date(l.startDate);
-        const leaveEnd = new Date(l.endDate);
+      let effectiveStart = new Date(leaveStart);
+      let effectiveEnd = new Date(leaveEnd);
 
-        if (
-          memberObj.projectStartDate &&
-          leaveEnd < new Date(memberObj.projectStartDate)
-        ) {
-          return;
-        }
+      if (memberObj?.projectStartDate) {
+        const projectStart = new Date(
+          `${memberObj.projectStartDate}T00:00:00`
+        );
 
-        if (
-          memberObj.lastWorkingDay &&
-          leaveStart > new Date(memberObj.lastWorkingDay)
-        ) {
-          return;
+        if (effectiveEnd < projectStart) return;
+        if (effectiveStart < projectStart) {
+          effectiveStart = projectStart;
         }
       }
 
-      row.totals[l.leaveType] += l.ptoDays;
-      row.totalLeaves += l.ptoDays;
+      if (memberObj?.lastWorkingDay) {
+        const projectEnd = new Date(
+          `${memberObj.lastWorkingDay}T00:00:00`
+        );
+
+        if (effectiveStart > projectEnd) return;
+        if (effectiveEnd > projectEnd) {
+          effectiveEnd = projectEnd;
+        }
+      }
+
+      let applicablePtoDays = 0;
+      const current = new Date(effectiveStart);
+
+      while (current <= effectiveEnd) {
+        const day = current.getDay();
+
+        if (day !== 0 && day !== 6) {
+          const isInSelectedMonth =
+            month === "All" ||
+            (current.getFullYear() === year &&
+              current.getMonth() === month);
+
+          if (isInSelectedMonth) {
+            applicablePtoDays++;
+          }
+        }
+
+        current.setDate(current.getDate() + 1);
+      }
+
+      // Preserve manually entered half-day / partial-day values
+      // when the leave falls entirely within the selected month.
+      if (
+        month !== "All" &&
+        applicablePtoDays > 0 &&
+        effectiveStart.getTime() === leaveStart.getTime() &&
+        effectiveEnd.getTime() === leaveEnd.getTime() &&
+        leaveStart.getMonth() === month &&
+        leaveStart.getFullYear() === year &&
+        leaveEnd.getMonth() === month &&
+        leaveEnd.getFullYear() === year
+      ) {
+        applicablePtoDays = l.ptoDays;
+      }
+
+      row.totals[l.leaveType] += applicablePtoDays;
+      row.totalLeaves += applicablePtoDays;
     });
 
     rows.forEach(r => {
@@ -333,9 +386,14 @@ export default function SummaryPage() {
 
   const years = Array.from(
     new Set(
-      leaves.map(l =>
-        new Date(l.startDate).getFullYear()
-      )
+      leaves.flatMap(l => {
+        const startYear = new Date(l.startDate).getFullYear();
+        const endYear = new Date(l.endDate).getFullYear();
+
+        return startYear === endYear
+          ? [startYear]
+          : [startYear, endYear];
+      })
     )
   ).sort();
 
