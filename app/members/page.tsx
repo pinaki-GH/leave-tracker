@@ -37,6 +37,16 @@ type MemberHolidayOverride = {
   action: "Add" | "Remove";
 };
 
+type Leave = {
+  id: string;
+  memberName: string;
+  leaveType: string;
+  status: "Planned" | "Confirmed";
+  ptoDays: number;
+  startDate: string;
+  endDate: string;
+};
+
 /* ================= COMPONENT ================= */
 
 export default function MembersPage() {
@@ -47,6 +57,7 @@ export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [leaves, setLeaves] = useState<Leave[]>([]);
 
   const [newName, setNewName] = useState("");
   const [newOrg, setNewOrg] = useState("");
@@ -112,6 +123,7 @@ export default function MembersPage() {
     );
 
     setLeaveTypes((getData("leaveTypes") as LeaveType[]) || []);
+    setLeaves((getData("leaves") as Leave[]) || []);
 
     const storedHolidays = (getData("companyHolidays") as any[]) || [];
 
@@ -142,6 +154,11 @@ export default function MembersPage() {
   const saveHolidays = (data: Holiday[]) => {
     setHolidays(data);
     saveData("companyHolidays", data);
+  };
+
+  const saveLeaves = (data: Leave[]) => {
+    setLeaves(data);
+    saveData("leaves", data);
   };
 
   const saveOverrides = (data: MemberHolidayOverride[]) => {
@@ -894,6 +911,265 @@ export default function MembersPage() {
     }
   };
 
+  const importLeavesFromExcel = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, {
+        type: "array",
+        cellDates: false,
+      });
+
+      const sheet = workbook.Sheets["Leaves"];
+
+      if (!sheet) {
+        alert('The Excel workbook must contain a sheet named "Leaves".');
+        return;
+      }
+
+      const requiredHeaders = [
+        "Member Name",
+        "Leave Type",
+        "Status",
+        "PTO Days",
+        "Start Date",
+        "End Date",
+      ];
+
+      const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, {
+        header: 1,
+        defval: "",
+        range: 0,
+      })[0] || [];
+
+      const missingHeaders = requiredHeaders.filter(
+        header => !headerRow.some(cell => String(cell).trim() === header)
+      );
+
+      if (missingHeaders.length > 0) {
+        alert(
+          `The Leaves sheet is missing these required columns: ${missingHeaders.join(
+            ", "
+          )}`
+        );
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+        defval: "",
+      });
+
+      const memberByName = new Map(
+        members.map(member => [member.name.trim().toLowerCase(), member])
+      );
+      const leaveTypeByName = new Map(
+        leaveTypes.map(type => [type.name.trim().toLowerCase(), type])
+      );
+
+      const importedLeaves: Leave[] = [];
+      const errors: string[] = [];
+
+      const isValidDateString = (value: string) => {
+        const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return false;
+
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const date = new Date(Date.UTC(year, month - 1, day));
+
+        return (
+          date.getUTCFullYear() === year &&
+          date.getUTCMonth() === month - 1 &&
+          date.getUTCDate() === day
+        );
+      };
+
+      rows.forEach((row, index) => {
+        const rowNumber = index + 2;
+        const memberName = String(row["Member Name"] ?? "").trim();
+        const leaveType = String(row["Leave Type"] ?? "").trim();
+        const rawStatus = String(row["Status"] ?? "").trim();
+        const rawPtoDays = row["PTO Days"];
+        const startDate = normalizeExcelDate(row["Start Date"]);
+        const endDate = normalizeExcelDate(row["End Date"]);
+        const rowHasData = [
+          memberName,
+          leaveType,
+          rawStatus,
+          String(rawPtoDays ?? "").trim(),
+          startDate,
+          endDate,
+        ].some(Boolean);
+
+        if (!rowHasData) return;
+
+        const rowErrors: string[] = [];
+        const member = memberByName.get(memberName.toLowerCase());
+        const matchedLeaveType = leaveTypeByName.get(leaveType.toLowerCase());
+        const status =
+          rawStatus.toLowerCase() === "planned"
+            ? "Planned"
+            : rawStatus.toLowerCase() === "confirmed"
+            ? "Confirmed"
+            : "";
+
+        if (!memberName) rowErrors.push("Member Name is required.");
+        else if (!member) {
+          rowErrors.push(
+            `Member Name '${memberName}' was not found in Team Members.`
+          );
+        }
+
+        if (!leaveType) rowErrors.push("Leave Type is required.");
+        else if (!matchedLeaveType) {
+          rowErrors.push(
+            `Leave Type '${leaveType}' was not found in Leave Types.`
+          );
+        }
+
+        if (!status) {
+          rowErrors.push('Status must be either "Planned" or "Confirmed".');
+        }
+
+        const ptoDays =
+          typeof rawPtoDays === "number"
+            ? rawPtoDays
+            : Number(String(rawPtoDays ?? "").trim());
+
+        if (!String(rawPtoDays ?? "").trim()) {
+          rowErrors.push("PTO Days is required.");
+        } else if (!Number.isFinite(ptoDays) || ptoDays <= 0) {
+          rowErrors.push("PTO Days must be a number greater than 0.");
+        } else if (Math.round(ptoDays * 2) !== ptoDays * 2) {
+          rowErrors.push("PTO Days must be in 0.5-day increments.");
+        }
+
+        if (!startDate) rowErrors.push("Start Date is required.");
+        else if (!isValidDateString(startDate)) {
+          rowErrors.push(
+            "Start Date must be a valid date in YYYY-MM-DD format."
+          );
+        }
+
+        if (!endDate) rowErrors.push("End Date is required.");
+        else if (!isValidDateString(endDate)) {
+          rowErrors.push(
+            "End Date must be a valid date in YYYY-MM-DD format."
+          );
+        }
+
+        if (
+          isValidDateString(startDate) &&
+          isValidDateString(endDate) &&
+          startDate > endDate
+        ) {
+          rowErrors.push("End Date cannot be before Start Date.");
+        }
+
+        if (rowErrors.length > 0) {
+          errors.push(`Row ${rowNumber}: ${rowErrors.join(" ")}`);
+          return;
+        }
+
+        importedLeaves.push({
+          id: crypto.randomUUID(),
+          memberName: member!.name,
+          leaveType: matchedLeaveType!.name,
+          status: status as "Planned" | "Confirmed",
+          ptoDays,
+          startDate,
+          endDate,
+        });
+      });
+
+      if (errors.length > 0) {
+        alert(
+          `Import could not be completed because some rows are invalid:\n\n${errors.join(
+            "\n"
+          )}`
+        );
+        return;
+      }
+
+      if (importedLeaves.length === 0) {
+        alert("No leave records were found in the Leaves sheet.");
+        return;
+      }
+
+      // A leave is identified by Member + Leave Type + Start Date + End Date.
+      // Status and PTO Days are attributes that can be updated on re-import.
+      const leaveKey = (leave: Leave) =>
+        `${leave.memberName.trim().toLowerCase()}|${leave.leaveType
+          .trim()
+          .toLowerCase()}|${leave.startDate}|${leave.endDate}`;
+
+      const existingByKey = new Map(
+        leaves.map(leave => [leaveKey(leave), leave])
+      );
+
+      const importedByKey = new Map<string, Leave>();
+      importedLeaves.forEach(leave => {
+        importedByKey.set(leaveKey(leave), leave);
+      });
+
+      const mergedLeaves = leaves.map(leave => {
+        const imported = importedByKey.get(leaveKey(leave));
+        if (!imported) return leave;
+
+        return {
+          ...leave,
+          memberName: imported.memberName,
+          leaveType: imported.leaveType,
+          status: imported.status,
+          ptoDays: imported.ptoDays,
+          startDate: imported.startDate,
+          endDate: imported.endDate,
+        };
+      });
+
+      let addedCount = 0;
+      let updatedCount = 0;
+
+      importedByKey.forEach((leave, key) => {
+        if (existingByKey.has(key)) {
+          updatedCount++;
+        } else {
+          mergedLeaves.push(leave);
+          addedCount++;
+        }
+      });
+
+      saveLeaves(mergedLeaves);
+
+      const summary = [
+        `${importedByKey.size} leave record${
+          importedByKey.size === 1 ? "" : "s"
+        } processed successfully.`,
+        addedCount > 0 ? `${addedCount} added.` : "",
+        updatedCount > 0 ? `${updatedCount} updated.` : "",
+        addedCount === 0 && updatedCount === 0
+          ? "No existing records needed to be changed."
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      alert(summary);
+    } catch (error) {
+      console.error("Leave Excel import failed:", error);
+      alert(
+        "The Excel file could not be imported. Please make sure it is a valid .xlsx or .xls file using the provided master-data template."
+      );
+    }
+  };
+
   /* ================= LEAVE TYPES ================= */
 
   const addLeaveType = () => {
@@ -1078,8 +1354,17 @@ const deleteOverride = (id: string) => {
                 className="hidden"
               />
             </label>
+            <label className="bg-gray-100 border px-4 py-2 rounded cursor-pointer">
+              Import Leaves from Excel
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={importLeavesFromExcel}
+                className="hidden"
+              />
+            </label>
             <span className="text-sm text-gray-500 self-center">
-              Uses the Members sheet from the master-data template
+              Members and Leaves imports use the corresponding sheets from the master-data template
             </span>
           </div>
 
