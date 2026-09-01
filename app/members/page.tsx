@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
+import * as XLSX from "xlsx";
 import { getData, saveData } from "@/lib/storage";
 
 /* ================= TYPES ================= */
@@ -210,6 +211,211 @@ export default function MembersPage() {
     saveMembers(members.filter(m => m.id !== id));
   };
 
+  const normalizeExcelDate = (value: unknown): string => {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      const year = value.getFullYear();
+      const month = String(value.getMonth() + 1).padStart(2, "0");
+      const day = String(value.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      const parsed = XLSX.SSF.parse_date_code(value);
+      if (parsed) {
+        return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(
+          parsed.d
+        ).padStart(2, "0")}`;
+      }
+    }
+
+    const text = String(value ?? "").trim();
+    if (!text) return "";
+
+    const isoMatch = text.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    if (isoMatch) {
+      return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
+    }
+
+    const parsed = new Date(text);
+    if (!Number.isNaN(parsed.getTime())) {
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, "0");
+      const day = String(parsed.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    return text;
+  };
+
+  const importMembersFromExcel = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, {
+        type: "array",
+        cellDates: true,
+      });
+
+      const sheet = workbook.Sheets["Members"];
+
+      if (!sheet) {
+        alert('The Excel workbook must contain a sheet named "Members".');
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+        defval: "",
+      });
+
+      const requiredHeaders = [
+        "Name",
+        "Leave Organization",
+        "Location",
+        "Managed By",
+        "Project Start Date",
+        "Last Working Day",
+      ];
+
+      const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, {
+        header: 1,
+        defval: "",
+        range: 0,
+      })[0] || [];
+
+      const missingHeaders = requiredHeaders.filter(
+        header => !headerRow.some(cell => String(cell).trim() === header)
+      );
+
+      if (missingHeaders.length > 0) {
+        alert(
+          `The Members sheet is missing these required columns: ${missingHeaders.join(
+            ", "
+          )}`
+        );
+        return;
+      }
+
+      const importedMembers: Member[] = [];
+      const errors: string[] = [];
+
+      rows.forEach((row, index) => {
+        const rowNumber = index + 2;
+        const name = String(row["Name"] ?? "").trim();
+        const organization = String(
+          row["Leave Organization"] ?? ""
+        ).trim();
+        const location = String(row["Location"] ?? "").trim();
+        const managedBy = String(row["Managed By"] ?? "").trim();
+        const projectStartDate = normalizeExcelDate(
+          row["Project Start Date"]
+        );
+        const lastWorkingDay = normalizeExcelDate(row["Last Working Day"]);
+
+        const rowHasData = [
+          name,
+          organization,
+          location,
+          managedBy,
+          projectStartDate,
+          lastWorkingDay,
+        ].some(Boolean);
+
+        if (!rowHasData) return;
+
+        if (!name) {
+          errors.push(`Row ${rowNumber}: Name is required.`);
+          return;
+        }
+
+        if (
+          projectStartDate &&
+          lastWorkingDay &&
+          projectStartDate > lastWorkingDay
+        ) {
+          errors.push(
+            `Row ${rowNumber}: Project Start Date cannot be after Last Working Day.`
+          );
+          return;
+        }
+
+        importedMembers.push({
+          id: crypto.randomUUID(),
+          name,
+          organization,
+          location,
+          managedBy,
+          projectStartDate,
+          lastWorkingDay,
+        });
+      });
+
+      if (errors.length > 0) {
+        alert(
+          `Import could not be completed because some rows are invalid:\n\n${errors.join(
+            "\n"
+          )}`
+        );
+        return;
+      }
+
+      if (importedMembers.length === 0) {
+        alert("No member records were found in the Members sheet.");
+        return;
+      }
+
+      const existingByName = new Map(
+        members.map(member => [member.name.trim().toLowerCase(), member])
+      );
+
+      const importedByName = new Map<string, Member>();
+      importedMembers.forEach(member => {
+        importedByName.set(member.name.trim().toLowerCase(), member);
+      });
+
+      const mergedMembers = members.map(member => {
+        const imported = importedByName.get(member.name.trim().toLowerCase());
+
+        if (!imported) return member;
+
+        return {
+          ...member,
+          name: imported.name,
+          organization: imported.organization,
+          location: imported.location,
+          managedBy: imported.managedBy,
+          projectStartDate: imported.projectStartDate,
+          lastWorkingDay: imported.lastWorkingDay,
+        };
+      });
+
+      importedMembers.forEach(member => {
+        const key = member.name.trim().toLowerCase();
+        if (!existingByName.has(key)) {
+          mergedMembers.push(member);
+        }
+      });
+
+      saveMembers(mergedMembers);
+
+      alert(
+        `${importedMembers.length} member record${
+          importedMembers.length === 1 ? "" : "s"
+        } imported successfully.`
+      );
+    } catch (error) {
+      console.error("Member Excel import failed:", error);
+      alert(
+        "The Excel file could not be imported. Please make sure it is a valid .xlsx or .xls file using the provided Members template."
+      );
+    }
+  };
+
   /* ================= LEAVE TYPES ================= */
 
   const addLeaveType = () => {
@@ -383,6 +589,21 @@ const deleteOverride = (id: string) => {
       {activeTab === "members" && (
         <div className="bg-white p-6 rounded shadow">
           <h2 className="font-bold mb-4">Team Members</h2>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            <label className="bg-gray-100 border px-4 py-2 rounded cursor-pointer">
+              Import Members from Excel
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={importMembersFromExcel}
+                className="hidden"
+              />
+            </label>
+            <span className="text-sm text-gray-500 self-center">
+              Uses the Members sheet from the master-data template
+            </span>
+          </div>
 
           <div className="grid md:grid-cols-6 gap-2 mb-4">
             <input
