@@ -548,6 +548,187 @@ export default function MembersPage() {
     }
   };
 
+  const importCompanyHolidaysFromExcel = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, {
+        type: "array",
+        cellDates: true,
+      });
+
+      const sheet = workbook.Sheets["Company Holidays"];
+
+      if (!sheet) {
+        alert(
+          'The Excel workbook must contain a sheet named "Company Holidays".'
+        );
+        return;
+      }
+
+      const requiredHeaders = [
+        "Holiday Name",
+        "Date",
+        "Organization",
+        "Location",
+      ];
+
+      const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, {
+        header: 1,
+        defval: "",
+        range: 0,
+      })[0] || [];
+
+      const missingHeaders = requiredHeaders.filter(
+        header => !headerRow.some(cell => String(cell).trim() === header)
+      );
+
+      if (missingHeaders.length > 0) {
+        alert(
+          `The Company Holidays sheet is missing these required columns: ${missingHeaders.join(
+            ", "
+          )}`
+        );
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+        defval: "",
+      });
+
+      const importedHolidays: Holiday[] = [];
+      const errors: string[] = [];
+
+      rows.forEach((row, index) => {
+        const rowNumber = index + 2;
+        const name = String(row["Holiday Name"] ?? "").trim();
+        const date = normalizeExcelDate(row["Date"]);
+        const organization = String(row["Organization"] ?? "").trim();
+        const location = String(row["Location"] ?? "").trim();
+
+        const rowHasData = [
+          name,
+          date,
+          organization,
+          location,
+        ].some(Boolean);
+
+        if (!rowHasData) return;
+
+        const rowErrors: string[] = [];
+
+        if (!name) rowErrors.push("Holiday Name is required.");
+        if (!date) rowErrors.push("Date is required.");
+        if (!organization) rowErrors.push("Organization is required.");
+        if (!location) rowErrors.push("Location is required.");
+
+        if (rowErrors.length > 0) {
+          errors.push(`Row ${rowNumber}: ${rowErrors.join(" ")}`);
+          return;
+        }
+
+        importedHolidays.push({
+          id: crypto.randomUUID(),
+          name,
+          date,
+          organization,
+          location,
+        });
+      });
+
+      if (errors.length > 0) {
+        alert(
+          `Import could not be completed because some rows are invalid:\n\n${errors.join(
+            "\n"
+          )}`
+        );
+        return;
+      }
+
+      if (importedHolidays.length === 0) {
+        alert("No company holiday records were found in the Company Holidays sheet.");
+        return;
+      }
+
+      // Treat Date + Organization + Location as the natural key for a holiday.
+      // This allows a re-import to update an existing holiday rather than creating
+      // duplicate records, while preserving the application's existing ID.
+      const existingByKey = new Map(
+        holidays.map(holiday => [
+          `${holiday.date}|${holiday.organization.trim().toLowerCase()}|${holiday.location
+            .trim()
+            .toLowerCase()}`,
+          holiday,
+        ])
+      );
+
+      const importedByKey = new Map<string, Holiday>();
+      importedHolidays.forEach(holiday => {
+        const key = `${holiday.date}|${holiday.organization
+          .trim()
+          .toLowerCase()}|${holiday.location.trim().toLowerCase()}`;
+        importedByKey.set(key, holiday);
+      });
+
+      const mergedHolidays = holidays.map(holiday => {
+        const key = `${holiday.date}|${holiday.organization
+          .trim()
+          .toLowerCase()}|${holiday.location.trim().toLowerCase()}`;
+        const imported = importedByKey.get(key);
+
+        if (!imported) return holiday;
+
+        return {
+          ...holiday,
+          name: imported.name,
+          date: imported.date,
+          organization: imported.organization,
+          location: imported.location,
+        };
+      });
+
+      let addedCount = 0;
+      let updatedCount = 0;
+
+      importedByKey.forEach((holiday, key) => {
+        if (existingByKey.has(key)) {
+          updatedCount++;
+        } else {
+          mergedHolidays.push(holiday);
+          addedCount++;
+        }
+      });
+
+      saveHolidays(mergedHolidays);
+
+      const summary = [
+        `${importedByKey.size} company holiday record${
+          importedByKey.size === 1 ? "" : "s"
+        } processed successfully.`,
+        addedCount > 0 ? `${addedCount} added.` : "",
+        updatedCount > 0 ? `${updatedCount} updated.` : "",
+        addedCount === 0 && updatedCount === 0
+          ? "No existing records needed to be changed."
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      alert(summary);
+    } catch (error) {
+      console.error("Company Holiday Excel import failed:", error);
+      alert(
+        "The Excel file could not be imported. Please make sure it is a valid .xlsx or .xls file using the provided master-data template."
+      );
+    }
+  };
+
   /* ================= LEAVE TYPES ================= */
 
   const addLeaveType = () => {
@@ -1076,6 +1257,21 @@ const deleteOverride = (id: string) => {
       {activeTab === "holidays" && (
         <div className="bg-white p-6 rounded shadow">
           <h2 className="font-bold mb-4">Company Holidays</h2>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            <label className="bg-gray-100 border px-4 py-2 rounded cursor-pointer">
+              Import Company Holidays from Excel
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={importCompanyHolidaysFromExcel}
+                className="hidden"
+              />
+            </label>
+            <span className="text-sm text-gray-500 self-center">
+              Uses the Company Holidays sheet from the master-data template
+            </span>
+          </div>
 
           <div className="grid md:grid-cols-4 gap-2 mb-4">
             <input
