@@ -213,8 +213,6 @@ export default function MembersPage() {
 
   const normalizeExcelDate = (value: unknown): string => {
     if (value instanceof Date && !Number.isNaN(value.getTime())) {
-      // Excel date cells are calendar dates, not timestamps. Use UTC
-      // components so the date does not shift because of the browser timezone.
       const year = value.getUTCFullYear();
       const month = String(value.getUTCMonth() + 1).padStart(2, "0");
       const day = String(value.getUTCDate()).padStart(2, "0");
@@ -261,7 +259,9 @@ export default function MembersPage() {
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, {
         type: "array",
-        cellDates: true,
+        // Keep Excel dates as serial numbers so date-only values are not
+        // converted through a JavaScript timezone.
+        cellDates: false,
       });
 
       const sheet = workbook.Sheets["Members"];
@@ -430,7 +430,9 @@ export default function MembersPage() {
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, {
         type: "array",
-        cellDates: true,
+        // Keep Excel dates as serial numbers so date-only values are not
+        // converted through a JavaScript timezone.
+        cellDates: false,
       });
 
       const sheet = workbook.Sheets["Leave Types"];
@@ -562,7 +564,9 @@ export default function MembersPage() {
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, {
         type: "array",
-        cellDates: true,
+        // Keep Excel dates as serial numbers so date-only values are not
+        // converted through a JavaScript timezone.
+        cellDates: false,
       });
 
       const sheet = workbook.Sheets["Company Holidays"];
