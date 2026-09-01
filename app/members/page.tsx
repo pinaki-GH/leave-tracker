@@ -416,6 +416,138 @@ export default function MembersPage() {
     }
   };
 
+  const importLeaveTypesFromExcel = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, {
+        type: "array",
+        cellDates: true,
+      });
+
+      const sheet = workbook.Sheets["Leave Types"];
+
+      if (!sheet) {
+        alert('The Excel workbook must contain a sheet named "Leave Types".');
+        return;
+      }
+
+      const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, {
+        header: 1,
+        defval: "",
+        range: 0,
+      })[0] || [];
+
+      if (!headerRow.some(cell => String(cell).trim() === "Leave Type")) {
+        alert('The "Leave Types" sheet must contain a column named "Leave Type".');
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+        defval: "",
+      });
+
+      const importedNames: string[] = [];
+      const errors: string[] = [];
+
+      rows.forEach((row, index) => {
+        const rowNumber = index + 2;
+        const name = String(row["Leave Type"] ?? "").trim();
+
+        if (!name) {
+          const rowHasData = Object.values(row).some(
+            value => String(value ?? "").trim() !== ""
+          );
+          if (rowHasData) {
+            errors.push(`Row ${rowNumber}: Leave Type is required.`);
+          }
+          return;
+        }
+
+        importedNames.push(name);
+      });
+
+      if (errors.length > 0) {
+        alert(
+          `Import could not be completed because some rows are invalid:\n\n${errors.join(
+            "\n"
+          )}`
+        );
+        return;
+      }
+
+      const uniqueImportedNames = Array.from(
+        new Map(
+          importedNames.map(name => [name.trim().toLowerCase(), name.trim()])
+        ).values()
+      );
+
+      if (uniqueImportedNames.length === 0) {
+        alert("No leave type records were found in the Leave Types sheet.");
+        return;
+      }
+
+      const existingByName = new Map(
+        leaveTypes.map(type => [type.name.trim().toLowerCase(), type])
+      );
+
+      const mergedLeaveTypes = [...leaveTypes];
+      let addedCount = 0;
+      let updatedCount = 0;
+
+      uniqueImportedNames.forEach(name => {
+        const key = name.toLowerCase();
+        const existing = existingByName.get(key);
+
+        if (existing) {
+          if (existing.name !== name) {
+            const index = mergedLeaveTypes.findIndex(
+              type => type.id === existing.id
+            );
+            if (index >= 0) {
+              mergedLeaveTypes[index] = { ...existing, name };
+              updatedCount++;
+            }
+          }
+        } else {
+          mergedLeaveTypes.push({
+            id: crypto.randomUUID(),
+            name,
+          });
+          addedCount++;
+        }
+      });
+
+      saveLeaveTypes(mergedLeaveTypes);
+
+      const summary = [
+        `${uniqueImportedNames.length} leave type${
+          uniqueImportedNames.length === 1 ? "" : "s"
+        } processed successfully.`,
+        addedCount > 0 ? `${addedCount} added.` : "",
+        updatedCount > 0 ? `${updatedCount} updated.` : "",
+        addedCount === 0 && updatedCount === 0
+          ? "No existing records needed to be changed."
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      alert(summary);
+    } catch (error) {
+      console.error("Leave Type Excel import failed:", error);
+      alert(
+        "The Excel file could not be imported. Please make sure it is a valid .xlsx or .xls file using the provided master-data template."
+      );
+    }
+  };
+
   /* ================= LEAVE TYPES ================= */
 
   const addLeaveType = () => {
@@ -848,6 +980,21 @@ const deleteOverride = (id: string) => {
       {activeTab === "leaveTypes" && (
         <div className="bg-white p-6 rounded shadow">
           <h2 className="font-bold mb-4">Leave Types</h2>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            <label className="bg-gray-100 border px-4 py-2 rounded cursor-pointer">
+              Import Leave Types from Excel
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={importLeaveTypesFromExcel}
+                className="hidden"
+              />
+            </label>
+            <span className="text-sm text-gray-500 self-center">
+              Uses the Leave Types sheet from the master-data template
+            </span>
+          </div>
 
           <div className="flex gap-2 mb-4">
             <input
