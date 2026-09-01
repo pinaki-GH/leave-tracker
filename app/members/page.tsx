@@ -236,12 +236,14 @@ export default function MembersPage() {
       return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
     }
 
-    const parsed = new Date(text);
-    if (!Number.isNaN(parsed.getTime())) {
-      const year = parsed.getFullYear();
-      const month = String(parsed.getMonth() + 1).padStart(2, "0");
-      const day = String(parsed.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
+    // Date-only fields must not be parsed with new Date(text), because
+    // ISO date strings can be interpreted as UTC and shift by one day
+    // when the browser is in a positive/negative timezone.
+    // The master-data template uses YYYY-MM-DD text, handled above.
+    // Also support DD-MM-YYYY / DD/MM/YYYY text without timezone conversion.
+    const dmyMatch = text.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+    if (dmyMatch) {
+      return `${dmyMatch[3]}-${dmyMatch[2].padStart(2, "0")}-${dmyMatch[1].padStart(2, "0")}`;
     }
 
     return text;
