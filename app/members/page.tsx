@@ -212,10 +212,9 @@ export default function MembersPage() {
   };
 
   const normalizeExcelDate = (value: unknown): string => {
-    // Excel stores date-only values without a timezone. When SheetJS returns a
-    // Date object, use UTC calendar components so the date is not shifted by
-    // the browser's local timezone (e.g. 01-Jan-2026 becoming 31-Dec-2025).
     if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      // Excel date cells are calendar dates, not timestamps. Use UTC
+      // components so the date does not shift because of the browser timezone.
       const year = value.getUTCFullYear();
       const month = String(value.getUTCMonth() + 1).padStart(2, "0");
       const day = String(value.getUTCDate()).padStart(2, "0");
