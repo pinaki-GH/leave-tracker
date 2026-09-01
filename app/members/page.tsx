@@ -737,6 +737,163 @@ export default function MembersPage() {
     }
   };
 
+  const importCustomHolidaysFromExcel = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, {
+        type: "array",
+        cellDates: false,
+      });
+
+      const sheet = workbook.Sheets["Custom Holidays"];
+
+      if (!sheet) {
+        alert('The Excel workbook must contain a sheet named "Custom Holidays".');
+        return;
+      }
+
+      const requiredHeaders = ["Member Name", "Holiday Name", "Date", "Action"];
+      const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, {
+        header: 1,
+        defval: "",
+        range: 0,
+      })[0] || [];
+
+      const missingHeaders = requiredHeaders.filter(
+        header => !headerRow.some(cell => String(cell).trim() === header)
+      );
+
+      if (missingHeaders.length > 0) {
+        alert(
+          `The Custom Holidays sheet is missing these required columns: ${missingHeaders.join(
+            ", "
+          )}`
+        );
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+        defval: "",
+      });
+
+      const memberByName = new Map(
+        members.map(member => [member.name.trim().toLowerCase(), member])
+      );
+
+      const importedOverrides: MemberHolidayOverride[] = [];
+      const errors: string[] = [];
+
+      rows.forEach((row, index) => {
+        const rowNumber = index + 2;
+        const memberName = String(row["Member Name"] ?? "").trim();
+        const holidayName = String(row["Holiday Name"] ?? "").trim();
+        const holidayDate = normalizeExcelDate(row["Date"]);
+        const action = String(row["Action"] ?? "").trim();
+        const rowHasData = [memberName, holidayName, holidayDate, action].some(Boolean);
+
+        if (!rowHasData) return;
+
+        const rowErrors: string[] = [];
+        const member = memberByName.get(memberName.toLowerCase());
+
+        if (!memberName) rowErrors.push("Member Name is required.");
+        else if (!member) rowErrors.push(`Member Name '${memberName}' was not found in Team Members.`);
+        if (!holidayName) rowErrors.push("Holiday Name is required.");
+        if (!holidayDate) rowErrors.push("Date is required.");
+        if (action !== "Add" && action !== "Remove") {
+          rowErrors.push('Action must be either "Add" or "Remove".');
+        }
+
+        if (rowErrors.length > 0) {
+          errors.push(`Row ${rowNumber}: ${rowErrors.join(" ")}`);
+          return;
+        }
+
+        importedOverrides.push({
+          id: crypto.randomUUID(),
+          memberId: member!.id,
+          holidayName,
+          holidayDate,
+          action: action as "Add" | "Remove",
+        });
+      });
+
+      if (errors.length > 0) {
+        alert(
+          `Import could not be completed because some rows are invalid:\n\n${errors.join("\n")}`
+        );
+        return;
+      }
+
+      if (importedOverrides.length === 0) {
+        alert("No custom holiday records were found in the Custom Holidays sheet.");
+        return;
+      }
+
+      // Member + Date + Holiday Name + Action is the natural key for an override.
+      const existingByKey = new Map(
+        memberHolidayOverrides.map(override => [
+          `${override.memberId}|${override.holidayDate}|${override.holidayName.trim().toLowerCase()}|${override.action}`,
+          override,
+        ])
+      );
+
+      const importedByKey = new Map<string, MemberHolidayOverride>();
+      importedOverrides.forEach(override => {
+        const key = `${override.memberId}|${override.holidayDate}|${override.holidayName.trim().toLowerCase()}|${override.action}`;
+        importedByKey.set(key, override);
+      });
+
+      const mergedOverrides = memberHolidayOverrides.map(override => {
+        const key = `${override.memberId}|${override.holidayDate}|${override.holidayName.trim().toLowerCase()}|${override.action}`;
+        const imported = importedByKey.get(key);
+        if (!imported) return override;
+
+        return {
+          ...override,
+          holidayName: imported.holidayName,
+          holidayDate: imported.holidayDate,
+          action: imported.action,
+        };
+      });
+
+      let addedCount = 0;
+      let updatedCount = 0;
+
+      importedByKey.forEach((override, key) => {
+        if (existingByKey.has(key)) {
+          updatedCount++;
+        } else {
+          mergedOverrides.push(override);
+          addedCount++;
+        }
+      });
+
+      saveOverrides(mergedOverrides);
+
+      const summary = [
+        `${importedByKey.size} custom holiday record${importedByKey.size === 1 ? "" : "s"} processed successfully.`,
+        addedCount > 0 ? `${addedCount} added.` : "",
+        updatedCount > 0 ? `${updatedCount} updated.` : "",
+        addedCount === 0 && updatedCount === 0 ? "No existing records needed to be changed." : "",
+      ].filter(Boolean).join(" ");
+
+      alert(summary);
+    } catch (error) {
+      console.error("Custom Holiday Excel import failed:", error);
+      alert(
+        "The Excel file could not be imported. Please make sure it is a valid .xlsx or .xls file using the provided master-data template."
+      );
+    }
+  };
+
   /* ================= LEAVE TYPES ================= */
 
   const addLeaveType = () => {
@@ -1558,6 +1715,21 @@ const deleteOverride = (id: string) => {
           <h2 className="font-bold mb-4">
             Custom Holidays
           </h2>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            <label className="bg-gray-100 border px-4 py-2 rounded cursor-pointer">
+              Import Custom Holidays from Excel
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={importCustomHolidaysFromExcel}
+                className="hidden"
+              />
+            </label>
+            <span className="text-sm text-gray-500 self-center">
+              Uses the Custom Holidays sheet from the master-data template
+            </span>
+          </div>
 
           <div className="grid md:grid-cols-4 gap-2 mb-4">
             <select
