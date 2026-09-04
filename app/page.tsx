@@ -102,6 +102,30 @@ export default function Home() {
       return;
     }
 
+    /*
+     * Prevent accidental duplicate leave records.
+     *
+     * A leave is considered a duplicate when the same member,
+     * leave type, start date and end date already exist.
+     *
+     * Status and PTO Days are intentionally not part of the
+     * duplicate check.
+     */
+    const duplicateExists = leaves.some(
+      existing =>
+        existing.memberName === leave.memberName &&
+        existing.leaveType === leave.leaveType &&
+        existing.startDate === leave.startDate &&
+        existing.endDate === leave.endDate
+    );
+
+    if (duplicateExists) {
+      alert(
+        "A leave already exists for this member, leave type and date range. Please check the existing leave before adding another."
+      );
+      return;
+    }
+
     const updated = [...leaves, leave];
 
     setLeaves(updated);
