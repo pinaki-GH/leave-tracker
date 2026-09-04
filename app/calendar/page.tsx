@@ -29,6 +29,17 @@ const months = [
   "July","August","September","October","November","December"
 ];
 
+/*
+ * Leave and holiday dates are date-only values (YYYY-MM-DD).
+ * Do not use new Date("YYYY-MM-DD") for comparisons because JavaScript
+ * interprets ISO date-only strings as UTC, which can cause month-end
+ * dates to fall outside the local month boundary.
+ */
+const parseDateOnly = (dateString: string): Date => {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
 export default function CalendarPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
@@ -98,7 +109,7 @@ const holidayLeaves: Leave[] = useMemo(() => {
   const overrides = memberHolidayOverrides;
   
   holidays.forEach(h => {
-    const d = new Date(h.date);
+    const d = parseDateOnly(h.date);
 
     if (d.getMonth() !== month) return;
     if (d.getFullYear() !== year) return;
@@ -173,7 +184,7 @@ const holidayLeaves: Leave[] = useMemo(() => {
       )
         return;
 
-      const d = new Date(o.holidayDate);
+      const d = parseDateOnly(o.holidayDate);
 
       if (d.getMonth() !== month) return;
       if (d.getFullYear() !== year) return;
@@ -204,8 +215,8 @@ const holidayLeaves: Leave[] = useMemo(() => {
     return allLeaves.filter(l => {
       const monthStart = new Date(year, month, 1);
       const monthEnd = new Date(year, month + 1, 0);
-      const leaveStart = new Date(l.startDate);
-      const leaveEnd = new Date(l.endDate);
+      const leaveStart = parseDateOnly(l.startDate);
+      const leaveEnd = parseDateOnly(l.endDate);
 
       if (leaveEnd < monthStart || leaveStart > monthEnd) {
         return false;
@@ -217,18 +228,18 @@ const holidayLeaves: Leave[] = useMemo(() => {
         );
 
         if (member) {
-          const leaveStart = new Date(l.startDate);
-          const leaveEnd = new Date(l.endDate);
+          const leaveStart = parseDateOnly(l.startDate);
+          const leaveEnd = parseDateOnly(l.endDate);
 
           if (
             member.projectStartDate &&
-            leaveEnd < new Date(member.projectStartDate)
+            leaveEnd < parseDateOnly(member.projectStartDate)
           )
             return false;
 
           if (
             member.lastWorkingDay &&
-            leaveStart > new Date(member.lastWorkingDay)
+            leaveStart > parseDateOnly(member.lastWorkingDay)
           )
             return false;
         }
@@ -275,13 +286,11 @@ const holidayLeaves: Leave[] = useMemo(() => {
         (m: any) => m.name === l.memberName
       );
 
-      const start = new Date(l.startDate);
-      const end = new Date(l.endDate);
+      const start = parseDateOnly(l.startDate);
+      const end = parseDateOnly(l.endDate);
 
       if (member?.projectStartDate) {
-        const projectStart = new Date(
-          member.projectStartDate
-        );
+        const projectStart = parseDateOnly(member.projectStartDate);
 
         if (start < projectStart) {
           start.setTime(projectStart.getTime());
@@ -289,9 +298,7 @@ const holidayLeaves: Leave[] = useMemo(() => {
       }
 
       if (member?.lastWorkingDay) {
-        const projectEnd = new Date(
-          member.lastWorkingDay
-        );
+        const projectEnd = parseDateOnly(member.lastWorkingDay);
 
         if (end > projectEnd) {
           end.setTime(projectEnd.getTime());
@@ -337,8 +344,8 @@ const holidayLeaves: Leave[] = useMemo(() => {
   const years = Array.from(
     new Set(
       allLeaves.flatMap(l => {
-        const startYear = new Date(l.startDate).getFullYear();
-        const endYear = new Date(l.endDate).getFullYear();
+        const startYear = parseDateOnly(l.startDate).getFullYear();
+        const endYear = parseDateOnly(l.endDate).getFullYear();
 
         return startYear === endYear
           ? [startYear]
