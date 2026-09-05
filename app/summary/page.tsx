@@ -28,9 +28,40 @@ type SummaryRow = {
   workingDays: number | null;
   effectiveWorkDays: number | null;
   approvalStatus: ApprovalStatus;
+  approvalApplicable: boolean;
 };
 
 /* ================= HELPERS ================= */
+
+function parseDateOnly(dateString: string): Date {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function isMonthOutsideProjectPeriod(
+  member: any,
+  year: number,
+  month: number | "All"
+) {
+  // "All Months" covers multiple months, so retain the existing
+  // approval-status workflow rather than marking the row N/A.
+  if (month === "All") return false;
+
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0);
+
+  if (member.projectStartDate) {
+    const projectStart = parseDateOnly(member.projectStartDate);
+    if (monthEnd < projectStart) return true;
+  }
+
+  if (member.lastWorkingDay) {
+    const projectEnd = parseDateOnly(member.lastWorkingDay);
+    if (monthStart > projectEnd) return true;
+  }
+
+  return false;
+}
 
 function getWeekdays(year: number, month: number) {
   let count = 0;
@@ -202,6 +233,7 @@ export default function SummaryPage() {
         effectiveWorkDays: null,
         approvalStatus:
           approvalMap[approvalKey(m.name)] || "Pending",
+        approvalApplicable: !isMonthOutsideProjectPeriod(m, year, month),
       }));
 
     rows.forEach(r => {
@@ -632,23 +664,29 @@ export default function SummaryPage() {
               </td>
 
               <td className="px-4 py-3 text-center">
-                <select
-                  value={r.approvalStatus}
-                  onChange={e =>
-                    updateApproval(
-                      r.member,
-                      e.target.value as ApprovalStatus
-                    )
-                  }
-                  className={`px-3 py-1 rounded text-sm ${
-                    r.approvalStatus === "Approved"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
-                >
-                  <option>Pending</option>
-                  <option>Approved</option>
-                </select>
+                {!r.approvalApplicable ? (
+                  <span className="px-3 py-1 rounded text-sm bg-gray-100 text-gray-500">
+                    N/A
+                  </span>
+                ) : (
+                  <select
+                    value={r.approvalStatus}
+                    onChange={e =>
+                      updateApproval(
+                        r.member,
+                        e.target.value as ApprovalStatus
+                      )
+                    }
+                    className={`px-3 py-1 rounded text-sm ${
+                      r.approvalStatus === "Approved"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}
+                  >
+                    <option>Pending</option>
+                    <option>Approved</option>
+                  </select>
+                )}
               </td>
             </tr>
           ))}
