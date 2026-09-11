@@ -9,6 +9,14 @@ const months = [
   "July","August","September","October","November","December"
 ];
 
+const quarters = [
+  { value: 1, label: "Q1 (Jan-Mar)", startMonth: 0, endMonth: 2 },
+  { value: 2, label: "Q2 (Apr-Jun)", startMonth: 3, endMonth: 5 },
+  { value: 3, label: "Q3 (Jul-Sep)", startMonth: 6, endMonth: 8 },
+  { value: 4, label: "Q4 (Oct-Dec)", startMonth: 9, endMonth: 11 },
+];
+
+type Quarter = 1 | 2 | 3 | 4;
 type ApprovalStatus = "Approved" | "Pending";
 
 type Holiday = {
@@ -154,6 +162,7 @@ export default function SummaryPage() {
   const [memberHolidayOverrides, setMemberHolidayOverrides] = useState<any[]>([]);
 
   const [month, setMonth] = useState<number | "All">(currentMonth);
+  const [quarter, setQuarter] = useState<Quarter | "All">("All");
   const [year, setYear] = useState(currentYear);
 
   const [selectedMember, setSelectedMember] =
@@ -192,49 +201,89 @@ export default function SummaryPage() {
     }
   }, []);
 
-  const approvalKey = (member: string) =>
-    `${year}-${month}-${member}`;
+  const approvalKey = (
+    member: string,
+    targetMonth: number | "All" = month
+  ) => `${year}-${targetMonth}-${member}`;
+
+  const getSelectedPeriod = () => {
+    if (quarter !== "All") {
+      const selectedQuarter = quarters.find(q => q.value === quarter)!;
+      return {
+        startMonth: selectedQuarter.startMonth,
+        endMonth: selectedQuarter.endMonth,
+      };
+    }
+
+    if (month !== "All") {
+      return {
+        startMonth: month,
+        endMonth: month,
+      };
+    }
+
+    return {
+      startMonth: 0,
+      endMonth: 11,
+    };
+  };
 
   const updateApproval = (
     member: string,
     status: ApprovalStatus
   ) => {
-    const key = approvalKey(member);
+    const { startMonth, endMonth } = getSelectedPeriod();
+    const updated = { ...approvalMap };
 
-    const updated = {
-      ...approvalMap,
-      [key]: status,
-    };
+    // Approval status remains stored month-by-month. For a quarter view,
+    // apply the selected status to each month in that quarter.
+    for (let targetMonth = startMonth; targetMonth <= endMonth; targetMonth++) {
+      updated[approvalKey(member, targetMonth)] = status;
+    }
 
     setApprovalMap(updated);
-
     saveData("approvalStatus", updated as unknown as any[]);
   };
 
   const summary = useMemo<SummaryRow[]>(() => {
+    const { startMonth, endMonth } = getSelectedPeriod();
+    const periodStart = new Date(year, startMonth, 1);
+    const periodEnd = new Date(year, endMonth + 1, 0);
+
     const rows: SummaryRow[] = members
       .filter(m =>
-        (selectedMember === "All Members" ||
-          m.name === selectedMember) &&
-
+        (selectedMember === "All Members" || m.name === selectedMember) &&
         (selectedOrg === "All Leave Organizations" ||
           m.organization === selectedOrg) &&
-
-        (selectedManager === "All Managers" ||
-          m.managedBy === selectedManager)
+        (selectedManager === "All Managers" || m.managedBy === selectedManager)
       )
-      .map(m => ({
-        member: m.name,
-        organization: m.organization || "—",
-        managedBy: m.managedBy || "—",
-        totals: {},
-        totalLeaves: 0,
-        workingDays: null,
-        effectiveWorkDays: null,
-        approvalStatus:
-          approvalMap[approvalKey(m.name)] || "Pending",
-        approvalApplicable: !isMonthOutsideProjectPeriod(m, year, month),
-      }));
+      .map(m => {
+        const applicableStatuses: ApprovalStatus[] = [];
+
+        for (let targetMonth = startMonth; targetMonth <= endMonth; targetMonth++) {
+          if (!isMonthOutsideProjectPeriod(m, year, targetMonth)) {
+            applicableStatuses.push(
+              approvalMap[approvalKey(m.name, targetMonth)] || "Pending"
+            );
+          }
+        }
+
+        return {
+          member: m.name,
+          organization: m.organization || "—",
+          managedBy: m.managedBy || "—",
+          totals: {},
+          totalLeaves: 0,
+          workingDays: null,
+          effectiveWorkDays: null,
+          approvalStatus:
+            applicableStatuses.length > 0 &&
+            applicableStatuses.every(status => status === "Approved")
+              ? "Approved"
+              : "Pending",
+          approvalApplicable: applicableStatuses.length > 0,
+        };
+      });
 
     rows.forEach(r => {
       leaveTypes.forEach(t => (r.totals[t] = 0));
@@ -243,25 +292,12 @@ export default function SummaryPage() {
     leaves.forEach(l => {
       if (l.status !== "Confirmed") return;
 
-      const leaveStart = new Date(`${l.startDate}T00:00:00`);
-      const leaveEnd = new Date(`${l.endDate}T00:00:00`);
+      const leaveStart = parseDateOnly(l.startDate);
+      const leaveEnd = parseDateOnly(l.endDate);
 
-      if (month !== "All") {
-        const monthStart = new Date(year, month, 1);
-        const monthEnd = new Date(year, month + 1, 0);
-
-        if (leaveEnd < monthStart || leaveStart > monthEnd) {
-          return;
-        }
-      } else if (
-        leaveEnd.getFullYear() < year ||
-        leaveStart.getFullYear() > year
-      ) {
-        return;
-      }
+      if (leaveEnd < periodStart || leaveStart > periodEnd) return;
 
       const row = rows.find(r => r.member === l.memberName);
-
       if (!row) return;
 
       const memberObj = members.find(m => m.name === l.memberName);
@@ -270,58 +306,38 @@ export default function SummaryPage() {
       let effectiveEnd = new Date(leaveEnd);
 
       if (memberObj?.projectStartDate) {
-        const projectStart = new Date(
-          `${memberObj.projectStartDate}T00:00:00`
-        );
-
+        const projectStart = parseDateOnly(memberObj.projectStartDate);
         if (effectiveEnd < projectStart) return;
-        if (effectiveStart < projectStart) {
-          effectiveStart = projectStart;
-        }
+        if (effectiveStart < projectStart) effectiveStart = projectStart;
       }
 
       if (memberObj?.lastWorkingDay) {
-        const projectEnd = new Date(
-          `${memberObj.lastWorkingDay}T00:00:00`
-        );
-
+        const projectEnd = parseDateOnly(memberObj.lastWorkingDay);
         if (effectiveStart > projectEnd) return;
-        if (effectiveEnd > projectEnd) {
-          effectiveEnd = projectEnd;
-        }
+        if (effectiveEnd > projectEnd) effectiveEnd = projectEnd;
       }
+
+      if (effectiveStart < periodStart) effectiveStart = periodStart;
+      if (effectiveEnd > periodEnd) effectiveEnd = periodEnd;
+      if (effectiveStart > effectiveEnd) return;
 
       let applicablePtoDays = 0;
       const current = new Date(effectiveStart);
 
       while (current <= effectiveEnd) {
         const day = current.getDay();
-
-        if (day !== 0 && day !== 6) {
-          const isInSelectedMonth =
-            month === "All" ||
-            (current.getFullYear() === year &&
-              current.getMonth() === month);
-
-          if (isInSelectedMonth) {
-            applicablePtoDays++;
-          }
-        }
-
+        if (day !== 0 && day !== 6) applicablePtoDays++;
         current.setDate(current.getDate() + 1);
       }
 
-      // Preserve manually entered half-day / partial-day values
-      // when the leave falls entirely within the selected month.
+      // Preserve manually entered partial-day values when the complete
+      // stored leave record is contained within the selected period.
       if (
-        month !== "All" &&
         applicablePtoDays > 0 &&
         effectiveStart.getTime() === leaveStart.getTime() &&
         effectiveEnd.getTime() === leaveEnd.getTime() &&
-        leaveStart.getMonth() === month &&
-        leaveStart.getFullYear() === year &&
-        leaveEnd.getMonth() === month &&
-        leaveEnd.getFullYear() === year
+        leaveStart >= periodStart &&
+        leaveEnd <= periodEnd
       ) {
         applicablePtoDays = l.ptoDays;
       }
@@ -331,47 +347,41 @@ export default function SummaryPage() {
     });
 
     rows.forEach(r => {
-      if (month === "All") return;
-
       const memberObj = members.find(m => m.name === r.member);
-
       if (!memberObj) return;
 
-      const holidayCount = getHolidayCount(
-        holidays,
-        memberHolidayOverrides,
-        memberObj,
-        year,
-        month
-      );
-      
+      let holidayCount = 0;
+      for (let targetMonth = startMonth; targetMonth <= endMonth; targetMonth++) {
+        holidayCount += getHolidayCount(
+          holidays,
+          memberHolidayOverrides,
+          memberObj,
+          year,
+          targetMonth
+        );
+      }
+
       r.totalLeaves += holidayCount;
 
       if (!r.totals["Company Holiday"]) {
         r.totals["Company Holiday"] = 0;
       }
-
       r.totals["Company Holiday"] += holidayCount;
     });
 
     rows.forEach(r => {
-      if (month === "All") return;
-
       const memberObj = members.find(m => m.name === r.member);
-
       if (!memberObj) return;
 
       let weekdays = 0;
-      const date = new Date(year, month, 1);
+      const date = new Date(periodStart);
 
-      while (date.getMonth() === month) {
+      while (date <= periodEnd) {
         const day = date.getDay();
 
         if (day !== 0 && day !== 6) {
           const isoDate =
-            `${date.getFullYear()}-${String(
-              date.getMonth() + 1
-            ).padStart(2, "0")}-${String(
+            `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
               date.getDate()
             ).padStart(2, "0")}`;
 
@@ -383,31 +393,24 @@ export default function SummaryPage() {
             !memberObj.lastWorkingDay ||
             isoDate <= memberObj.lastWorkingDay;
 
-          if (withinStart && withinEnd) {
-            weekdays++;
-          }
+          if (withinStart && withinEnd) weekdays++;
         }
 
         date.setDate(date.getDate() + 1);
       }
 
       r.workingDays = weekdays;
-
-      r.effectiveWorkDays = Math.max(
-        weekdays - r.totalLeaves,
-        0
-      );
+      r.effectiveWorkDays = Math.max(weekdays - r.totalLeaves, 0);
     });
 
-    return rows.sort((a, b) =>
-      a.member.localeCompare(b.member)
-    );
+    return rows.sort((a, b) => a.member.localeCompare(b.member));
   }, [
     leaves,
     members,
     memberHolidayOverrides,
     leaveTypes,
     month,
+    quarter,
     year,
     approvalMap,
     holidays,
@@ -458,43 +461,48 @@ export default function SummaryPage() {
       : members.find(m => m.name === selectedMember);
 
   const totalWorkingDays =
-    month === "All"
-      ? null
-      : selectedMemberObj
-      ? (() => {
-          let count = 0;
-          const date = new Date(year, month, 1);
+    (() => {
+      const { startMonth, endMonth } = getSelectedPeriod();
+      const periodStart = new Date(year, startMonth, 1);
+      const periodEnd = new Date(year, endMonth + 1, 0);
 
-          while (date.getMonth() === month) {
-            const day = date.getDay();
+      let count = 0;
 
-            if (day !== 0 && day !== 6) {
-              const isoDate =
-                `${date.getFullYear()}-${String(
-                  date.getMonth() + 1
-                ).padStart(2, "0")}-${String(
-                  date.getDate()
-                ).padStart(2, "0")}`;
+      if (selectedMemberObj) {
+        const date = new Date(periodStart);
 
-              const withinStart =
-                !selectedMemberObj.projectStartDate ||
-                isoDate >= selectedMemberObj.projectStartDate;
+        while (date <= periodEnd) {
+          const day = date.getDay();
 
-              const withinEnd =
-                !selectedMemberObj.lastWorkingDay ||
-                isoDate <= selectedMemberObj.lastWorkingDay;
+          if (day !== 0 && day !== 6) {
+            const isoDate =
+              `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+                date.getDate()
+              ).padStart(2, "0")}`;
 
-              if (withinStart && withinEnd) {
-                count++;
-              }
-            }
+            const withinStart =
+              !selectedMemberObj.projectStartDate ||
+              isoDate >= selectedMemberObj.projectStartDate;
 
-            date.setDate(date.getDate() + 1);
+            const withinEnd =
+              !selectedMemberObj.lastWorkingDay ||
+              isoDate <= selectedMemberObj.lastWorkingDay;
+
+            if (withinStart && withinEnd) count++;
           }
 
-          return count;
-        })()
-      : getWeekdays(year, month);
+          date.setDate(date.getDate() + 1);
+        }
+
+        return count;
+      }
+
+      for (let targetMonth = startMonth; targetMonth <= endMonth; targetMonth++) {
+        count += getWeekdays(year, targetMonth);
+      }
+
+      return count;
+    })();
 
   return (
     <div className="bg-white p-6 rounded shadow">
@@ -507,19 +515,43 @@ export default function SummaryPage() {
         <select
           className="border p-2"
           value={month}
-          onChange={e =>
-            setMonth(
+          onChange={e => {
+            const value =
               e.target.value === "All"
                 ? "All"
-                : Number(e.target.value)
-            )
-          }
+                : Number(e.target.value);
+
+            setMonth(value);
+            if (value !== "All") setQuarter("All");
+          }}
         >
           <option value="All">All Months</option>
 
           {months.map((m, i) => (
             <option key={m} value={i}>
               {m}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="border p-2"
+          value={quarter}
+          onChange={e => {
+            const value =
+              e.target.value === "All"
+                ? "All"
+                : Number(e.target.value) as Quarter;
+
+            setQuarter(value);
+            if (value !== "All") setMonth("All");
+          }}
+        >
+          <option value="All">All Quarters</option>
+
+          {quarters.map(q => (
+            <option key={q.value} value={q.value}>
+              {q.label}
             </option>
           ))}
         </select>
@@ -567,6 +599,7 @@ export default function SummaryPage() {
         <button
           onClick={() => {
             setMonth(currentMonth);
+            setQuarter("All");
             setYear(currentYear);
             setSelectedMember("All Members");
             setSelectedOrg("All Leave Organizations");
@@ -579,7 +612,7 @@ export default function SummaryPage() {
       </div>
 
       {/* Working Days */}
-      {month !== "All" && (
+      {(month !== "All" || quarter !== "All") && (
         <div className="mb-4 font-medium">
           Total Working Days: {totalWorkingDays}
         </div>
