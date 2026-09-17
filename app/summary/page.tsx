@@ -83,15 +83,15 @@ function getWeekdays(year: number, month: number) {
   return count;
 }
 
-function getHolidayCount(
+function getHolidayDates(
   holidays: Holiday[],
   overrides: any[],
   member: any,
   year: number,
   month: number
-) {
+): Set<string> {
   let applicableHolidays = holidays.filter(h => {
-    const d = new Date(h.date);
+    const d = parseDateOnly(h.date);
 
     return (
       h.location === member.location &&
@@ -109,25 +109,28 @@ function getHolidayCount(
     o => o.memberId === member.id
   );
 
-  // Remove overridden holidays
-  applicableHolidays =
-    applicableHolidays.filter(
-      h =>
-        !memberOverrides.some(
-          o =>
-            o.action === "Remove" &&
-            o.holidayDate === h.date &&
-            o.holidayName === h.name
-        )
-    );
+  // Remove overridden holidays.
+  applicableHolidays = applicableHolidays.filter(
+    h =>
+      !memberOverrides.some(
+        o =>
+          o.action === "Remove" &&
+          o.holidayDate === h.date &&
+          o.holidayName === h.name
+      )
+  );
 
-  // Add custom holidays
-  const addedHolidays = memberOverrides
+  const dates = new Set<string>(
+    applicableHolidays.map(h => h.date)
+  );
+
+  // Add custom holidays.
+  memberOverrides
     .filter(o => o.action === "Add")
-    .filter(o => {
-      const d = new Date(o.holidayDate);
+    .forEach(o => {
+      const d = parseDateOnly(o.holidayDate);
 
-      return (
+      if (
         d.getFullYear() === year &&
         d.getMonth() === month &&
         d.getDay() !== 0 &&
@@ -136,13 +139,28 @@ function getHolidayCount(
           o.holidayDate >= member.projectStartDate) &&
         (!member.lastWorkingDay ||
           o.holidayDate <= member.lastWorkingDay)
-      );
+      ) {
+        dates.add(o.holidayDate);
+      }
     });
 
-  return (
-    applicableHolidays.length +
-    addedHolidays.length
-  );
+  return dates;
+}
+
+function getHolidayCount(
+  holidays: Holiday[],
+  overrides: any[],
+  member: any,
+  year: number,
+  month: number
+) {
+  return getHolidayDates(
+    holidays,
+    overrides,
+    member,
+    year,
+    month
+  ).size;
 }
 
 /* ================= COMPONENT ================= */
@@ -321,26 +339,84 @@ export default function SummaryPage() {
       if (effectiveEnd > periodEnd) effectiveEnd = periodEnd;
       if (effectiveStart > effectiveEnd) return;
 
-      let applicablePtoDays = 0;
+      /*
+       * Company Holiday takes precedence over Personal Leave.
+       * Build the applicable holiday-date set for the selected period
+       * and exclude those dates from the personal-leave PTO calculation.
+       */
+      const companyHolidayDates = new Set<string>();
+
+      for (
+        let targetMonth = effectiveStart.getMonth();
+        targetMonth <= effectiveEnd.getMonth() ||
+        (effectiveStart.getFullYear() !== effectiveEnd.getFullYear() &&
+          targetMonth <= 11);
+        targetMonth++
+      ) {
+        const targetYear =
+          effectiveStart.getFullYear() +
+          Math.floor(targetMonth / 12);
+
+        const normalizedMonth = targetMonth % 12;
+
+        if (targetYear > effectiveEnd.getFullYear()) break;
+        if (
+          targetYear === effectiveEnd.getFullYear() &&
+          normalizedMonth > effectiveEnd.getMonth()
+        ) {
+          break;
+        }
+
+        const holidayDates = getHolidayDates(
+          holidays,
+          memberHolidayOverrides,
+          memberObj,
+          targetYear,
+          normalizedMonth
+        );
+
+        holidayDates.forEach(date => companyHolidayDates.add(date));
+
+        if (targetYear === effectiveEnd.getFullYear() &&
+            normalizedMonth === effectiveEnd.getMonth()) {
+          break;
+        }
+      }
+
+      let calculatedPtoDays = 0;
       const current = new Date(effectiveStart);
 
       while (current <= effectiveEnd) {
         const day = current.getDay();
-        if (day !== 0 && day !== 6) applicablePtoDays++;
+
+        const isoDate =
+          `${current.getFullYear()}-${String(
+            current.getMonth() + 1
+          ).padStart(2, "0")}-${String(
+            current.getDate()
+          ).padStart(2, "0")}`;
+
+        if (
+          day !== 0 &&
+          day !== 6 &&
+          !companyHolidayDates.has(isoDate)
+        ) {
+          calculatedPtoDays++;
+        }
+
         current.setDate(current.getDate() + 1);
       }
 
-      // Preserve manually entered partial-day values when the complete
-      // stored leave record is contained within the selected period.
-      if (
-        applicablePtoDays > 0 &&
-        effectiveStart.getTime() === leaveStart.getTime() &&
-        effectiveEnd.getTime() === leaveEnd.getTime() &&
-        leaveStart >= periodStart &&
-        leaveEnd <= periodEnd
-      ) {
-        applicablePtoDays = l.ptoDays;
-      }
+      /*
+       * For a leave record entered as a full-day plan, use the calculated
+       * number of applicable working days after excluding Company Holidays.
+       * For partial-day records, retain the entered PTO value but never
+       * allow it to exceed the applicable working days.
+       */
+      let applicablePtoDays = Math.min(
+        l.ptoDays,
+        calculatedPtoDays
+      );
 
       row.totals[l.leaveType] += applicablePtoDays;
       row.totalLeaves += applicablePtoDays;
