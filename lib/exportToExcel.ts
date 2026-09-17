@@ -12,7 +12,47 @@ export function exportLeavesToExcel(leaves: Leave[]) {
     "End Date",
   ];
 
-  const rows = leaves.map(l => [
+  // Keep all records together by member, then sort chronologically.
+  // This allows Personal Leave and Company Holiday records to appear
+  // together for each member in the exported file.
+  const sortedLeaves = [...leaves].sort((a, b) => {
+    const memberCompare = a.memberName.localeCompare(b.memberName);
+
+    if (memberCompare !== 0) {
+      return memberCompare;
+    }
+
+    const dateCompare = a.startDate.localeCompare(b.startDate);
+
+    if (dateCompare !== 0) {
+      return dateCompare;
+    }
+
+    const endDateCompare = a.endDate.localeCompare(b.endDate);
+
+    if (endDateCompare !== 0) {
+      return endDateCompare;
+    }
+
+    return a.leaveType.localeCompare(b.leaveType);
+  });
+
+  const escapeCsvValue = (value: unknown) => {
+    const text = String(value ?? "");
+
+    if (
+      text.includes(",") ||
+      text.includes('"') ||
+      text.includes("\n") ||
+      text.includes("\r")
+    ) {
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+
+    return text;
+  };
+
+  const rows = sortedLeaves.map(l => [
     l.memberName,
     l.leaveType,
     l.status,
@@ -22,8 +62,8 @@ export function exportLeavesToExcel(leaves: Leave[]) {
   ]);
 
   const csvContent = [
-    headers.join(","),
-    ...rows.map(r => r.join(",")),
+    headers.map(escapeCsvValue).join(","),
+    ...rows.map(row => row.map(escapeCsvValue).join(",")),
   ].join("\n");
 
   const blob = new Blob([csvContent], {
@@ -32,6 +72,7 @@ export function exportLeavesToExcel(leaves: Leave[]) {
 
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
+
   link.href = url;
   link.setAttribute(
     "download",
@@ -41,4 +82,6 @@ export function exportLeavesToExcel(leaves: Leave[]) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
 }
