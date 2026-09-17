@@ -281,6 +281,23 @@ const holidayLeaves: Leave[] = useMemo(() => {
   const leavesByDate = useMemo(() => {
     const map: Record<number, Leave[]> = {};
 
+    /*
+     * Company Holiday takes precedence over Personal Leave.
+     *
+     * holidayLeaves contains the applicable standard/custom company
+     * holidays for the selected month and each member. Build a lookup
+     * using member + date so a personal leave is not displayed on a
+     * day that is already a Company Holiday for that member.
+     *
+     * The original leave record is not split or deleted. Only the
+     * calendar representation of the overlapping day is suppressed.
+     */
+    const companyHolidayDates = new Set(
+      holidayLeaves.map(
+        h => `${h.memberName}|${h.startDate}`
+      )
+    );
+
     filteredLeaves.forEach(l => {
       const member = membersData.find(
         (m: any) => m.name === l.memberName
@@ -321,15 +338,41 @@ const holidayLeaves: Leave[] = useMemo(() => {
           current.getFullYear() === year
         ) {
           const day = current.getDate();
+
+          const isoDate =
+            `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(
+              current.getDate()
+            ).padStart(2, "0")}`;
+
+          /*
+           * If this is a personal leave and the same member/date is a
+           * Company Holiday, do not add the personal leave to the
+           * calendar. The virtual Company Holiday record remains visible.
+           */
+          if (
+            l.leaveType !== "Company Holiday" &&
+            companyHolidayDates.has(`${l.memberName}|${isoDate}`)
+          ) {
+            current.setDate(current.getDate() + 1);
+            continue;
+          }
+
           map[day] = map[day] || [];
           map[day].push(l);
         }
+
         current.setDate(current.getDate() + 1);
       }
     });
 
     return map;
-  }, [filteredLeaves, membersData, month, year]);
+  }, [
+    filteredLeaves,
+    membersData,
+    holidayLeaves,
+    month,
+    year,
+  ]);
 
   /* ---------- Filter Options ---------- */
 
