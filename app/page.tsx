@@ -25,11 +25,20 @@ const parseDateOnly = (dateString: string): Date => {
 export default function Home() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [editingLeave, setEditingLeave] = useState<Leave | null>(null);
+  const [companyHolidays, setCompanyHolidays] = useState<
+    {
+      id: string;
+      location: string;
+      date: string;
+      name: string;
+    }[]
+  >([]);
 
   const [members, setMembers] = useState<
     {
       id: string;
       name: string;
+      location?: string;
       projectStartDate?: string;
       lastWorkingDay?: string;
     }[]
@@ -53,6 +62,7 @@ export default function Home() {
   useEffect(() => {
     setLeaves(getData("leaves") || []);
     setMembers(getData("members") || []);
+    setCompanyHolidays(getData("companyHolidays") || []);
   }, []);
 
   /*
@@ -92,6 +102,57 @@ export default function Home() {
   };
 
   /*
+   * Company Holiday handling
+   *
+   * A Company Holiday takes precedence over personal leave on the
+   * same weekday. The holiday must match the member's location.
+   *
+   * The original leave range remains one stored record. PTO Days are
+   * reduced only by applicable weekday Company Holidays within that
+   * leave range, preserving partial-day values where applicable.
+   */
+  const getCompanyHolidayDatesForMember = (memberName: string) => {
+    const member = members.find(m => m.name === memberName);
+
+    if (!member?.location) return new Set<string>();
+
+    return new Set(
+      companyHolidays
+        .filter(h => h.location === member.location)
+        .map(h => h.date)
+    );
+  };
+
+  const calculateEffectivePtoDays = (leave: Leave) => {
+    const holidayDates = getCompanyHolidayDatesForMember(leave.memberName);
+    const start = parseDateOnly(leave.startDate);
+    const end = parseDateOnly(leave.endDate);
+
+    if (end < start) return 0;
+
+    let companyHolidayDays = 0;
+    const current = new Date(start);
+
+    while (current <= end) {
+      const day = current.getDay();
+      const isoDate =
+        `${current.getFullYear()}-${String(
+          current.getMonth() + 1
+        ).padStart(2, "0")}-${String(
+          current.getDate()
+        ).padStart(2, "0")}`;
+
+      if (day !== 0 && day !== 6 && holidayDates.has(isoDate)) {
+        companyHolidayDays++;
+      }
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    return Math.max(leave.ptoDays - companyHolidayDays, 0);
+  };
+
+  /*
    * Add Leave
    */
   const addLeave = (leave: Leave) => {
@@ -126,7 +187,23 @@ export default function Home() {
       return;
     }
 
-    const updated = [...leaves, leave];
+    const effectivePtoDays = calculateEffectivePtoDays(leave);
+
+    // If the complete personal-leave plan falls on Company Holidays,
+    // there is no personal PTO to record.
+    if (effectivePtoDays === 0) {
+      alert(
+        "The selected leave period contains no personal leave days after applying Company Holidays."
+      );
+      return;
+    }
+
+    const normalizedLeave = {
+      ...leave,
+      ptoDays: effectivePtoDays,
+    };
+
+    const updated = [...leaves, normalizedLeave];
 
     setLeaves(updated);
     saveData("leaves", updated);
@@ -143,8 +220,22 @@ export default function Home() {
       return;
     }
 
+    const effectivePtoDays = calculateEffectivePtoDays(updatedLeave);
+
+    if (effectivePtoDays === 0) {
+      alert(
+        "The selected leave period contains no personal leave days after applying Company Holidays."
+      );
+      return;
+    }
+
+    const normalizedLeave = {
+      ...updatedLeave,
+      ptoDays: effectivePtoDays,
+    };
+
     const updated = leaves.map(l =>
-      l.id === updatedLeave.id ? updatedLeave : l
+      l.id === normalizedLeave.id ? normalizedLeave : l
     );
 
     setLeaves(updated);
