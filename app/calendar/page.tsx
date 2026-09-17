@@ -209,6 +209,111 @@ const holidayLeaves: Leave[] = useMemo(() => {
     return [...leaves, ...holidayLeaves];
   }, [leaves, holidayLeaves]);
 
+  /*
+   * Export dataset
+   *
+   * Company Holiday takes precedence over Personal Leave on the same
+   * member/date. The stored personal leave record is not changed; for
+   * export purposes, an overlapping personal leave is split into the
+   * applicable non-holiday date ranges so the exported data represents
+   * exactly what the consolidated calendar shows.
+   *
+   * Example:
+   *   Personal Leave: 10-Apr to 14-Apr
+   *   Company Holiday: 13-Apr
+   *
+   * Export:
+   *   Personal Leave: 10-Apr to 12-Apr
+   *   Company Holiday: 13-Apr
+   *   Personal Leave: 14-Apr
+   */
+  const exportLeaves = useMemo(() => {
+    const holidayDatesByMember = new Map<string, Set<string>>();
+
+    holidayLeaves.forEach(h => {
+      const existing = holidayDatesByMember.get(h.memberName) || new Set<string>();
+      existing.add(h.startDate);
+      holidayDatesByMember.set(h.memberName, existing);
+    });
+
+    const result: Leave[] = [];
+
+    leaves.forEach(l => {
+      const memberHolidayDates =
+        holidayDatesByMember.get(l.memberName) || new Set<string>();
+
+      const start = parseDateOnly(l.startDate);
+      const end = parseDateOnly(l.endDate);
+
+      let segmentStart: Date | null = null;
+
+      const addSegment = (segmentEnd: Date) => {
+        if (!segmentStart) return;
+
+        result.push({
+          ...l,
+          id:
+            segmentStart.getTime() === start.getTime() &&
+            segmentEnd.getTime() === end.getTime()
+              ? l.id
+              : `${l.id}-export-${segmentStart.getTime()}`,
+          startDate: `${segmentStart.getFullYear()}-${String(
+            segmentStart.getMonth() + 1
+          ).padStart(2, "0")}-${String(segmentStart.getDate()).padStart(2, "0")}`,
+          endDate: `${segmentEnd.getFullYear()}-${String(
+            segmentEnd.getMonth() + 1
+          ).padStart(2, "0")}-${String(segmentEnd.getDate()).padStart(2, "0")}`,
+        });
+
+        segmentStart = null;
+      };
+
+      const current = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+
+      while (current <= end) {
+        const dayOfWeek = current.getDay();
+        const isoDate = `${current.getFullYear()}-${String(
+          current.getMonth() + 1
+        ).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`;
+
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const isCompanyHoliday = memberHolidayDates.has(isoDate);
+
+        if (!isWeekend && isCompanyHoliday) {
+          if (segmentStart) {
+            const previousDay = new Date(current);
+            previousDay.setDate(previousDay.getDate() - 1);
+            addSegment(previousDay);
+          }
+        } else if (!segmentStart) {
+          segmentStart = new Date(current);
+        }
+
+        current.setDate(current.getDate() + 1);
+      }
+
+      if (segmentStart) {
+        const segmentEnd = new Date(end);
+        // Do not include weekend-only trailing days in the exported segment.
+        while (
+          segmentEnd >= segmentStart &&
+          (segmentEnd.getDay() === 0 || segmentEnd.getDay() === 6)
+        ) {
+          segmentEnd.setDate(segmentEnd.getDate() - 1);
+        }
+
+        if (segmentEnd >= segmentStart) {
+          addSegment(segmentEnd);
+        }
+      }
+    });
+
+    // Add the Company Holiday records after the personal-leave segments.
+    result.push(...holidayLeaves);
+
+    return result;
+  }, [leaves, holidayLeaves]);
+
   /* ---------- Filtered Leaves ---------- */
 
   const filteredLeaves = useMemo(() => {
@@ -413,7 +518,7 @@ const holidayLeaves: Leave[] = useMemo(() => {
           <h2 className="text-lg font-bold">Calendar View</h2>
           <div className="flex-1" />
           <button
-            onClick={() => exportLeavesToExcel(allLeaves)}
+            onClick={() => exportLeavesToExcel(exportLeaves)}
             className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
           >
             Export to Excel
