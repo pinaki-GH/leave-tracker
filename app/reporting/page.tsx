@@ -144,6 +144,77 @@ export default function ReportingPage() {
           "0"
         )}`;
 
+        const getApplicableHolidaysForMember = (
+          memberName: string,
+          targetDate: string
+        ): Holiday[] => {
+          const member = members.find(m => m.name === memberName);
+          if (!member) return [];
+
+          // A holiday is applicable only within the member's project period.
+          if (
+            member.projectStartDate &&
+            targetDate < member.projectStartDate
+          ) {
+            return [];
+          }
+
+          if (
+            member.lastWorkingDay &&
+            targetDate > member.lastWorkingDay
+          ) {
+            return [];
+          }
+
+          const memberOverrides = memberHolidayOverrides.filter(
+            o => o.memberId === member.id
+          );
+
+          const applicableStandardHolidays = holidays.filter(h => {
+            const removed = memberOverrides.some(
+              o =>
+                o.action === "Remove" &&
+                o.holidayDate === h.date &&
+                o.holidayName === h.name
+            );
+
+            if (removed) return false;
+
+            return (
+              h.organization === member.organization &&
+              h.location === member.location &&
+              h.date === targetDate
+            );
+          });
+
+          const customAddedHolidays: Holiday[] = memberOverrides
+            .filter(
+              o =>
+                o.action === "Add" &&
+                o.holidayDate === targetDate
+            )
+            .map(o => ({
+              id: o.id,
+              name: o.holidayName,
+              date: o.holidayDate,
+              organization: member.organization,
+              location: member.location,
+            }));
+
+          return [
+            ...applicableStandardHolidays,
+            ...customAddedHolidays,
+          ];
+        };
+
+        /*
+         * Company Holiday precedence:
+         * If a member has an applicable Company Holiday on a date,
+         * that date must not also be displayed as Personal Leave.
+         *
+         * This applies regardless of whether the legend filter is
+         * All, Planned, or Confirmed.
+         */
         const dayLeaves = leaves.filter(l => {
           if (
             selectedMember !== "All Members" &&
@@ -197,6 +268,17 @@ export default function ReportingPage() {
 
           const dayOfWeek = date.getDay();
 
+          const isCompanyHoliday =
+            getApplicableHolidaysForMember(
+              l.memberName,
+              isoDate
+            ).length > 0;
+
+          // Company Holiday takes precedence over Personal Leave.
+          if (isCompanyHoliday) {
+            return false;
+          }
+
           return (
             dayOfWeek !== 0 &&
             dayOfWeek !== 6 &&
@@ -212,68 +294,11 @@ export default function ReportingPage() {
           (activeLegendFilter === "All" ||
             activeLegendFilter === "Holiday")
         ) {
-          dayHolidays = holidays.filter(h => {
-            const memberOverrides =
-              memberHolidayOverrides.filter(
-                o => o.memberId === selectedMemberData.id
-              );
-
-            // Remove overridden standard holidays
-            const removed = memberOverrides.some(
-              o =>
-                o.action === "Remove" && o.holidayDate === h.date && o.holidayName === h.name
-            );
-
-            if (removed) return false;
-
-            if (
-              selectedMemberData.projectStartDate &&
-              h.date < selectedMemberData.projectStartDate
-            ) {
-              return false;
-            }
-
-            if (
-              selectedMemberData.lastWorkingDay &&
-              h.date > selectedMemberData.lastWorkingDay
-            ) {
-              return false;
-            }
-
-            return (
-              h.organization === selectedMemberData.organization &&
-              h.location === selectedMemberData.location &&
-              h.date === isoDate
-            );
-          });
-
-          const customAddedHolidays =
-            memberHolidayOverrides
-              .filter(
-                o =>
-                  o.memberId === selectedMemberData.id &&
-                  o.action === "Add" &&
-                  o.holidayDate === isoDate &&
-                  (!selectedMemberData.projectStartDate ||
-                    o.holidayDate >= selectedMemberData.projectStartDate) &&
-                  (!selectedMemberData.lastWorkingDay ||
-                    o.holidayDate <= selectedMemberData.lastWorkingDay)
-              )
-              .map(o => ({
-                id: o.id,
-                name: o.holidayName,
-                date: o.holidayDate,
-                organization:
-                  selectedMemberData.organization,
-                location:
-                  selectedMemberData.location,
-              }));
-          
-          dayHolidays = [...dayHolidays,...customAddedHolidays,
-          ];
-          
+          dayHolidays = getApplicableHolidaysForMember(
+            selectedMemberData.name,
+            isoDate
+          );
         }
-
         const isLastWorkingDay =
           selectedMember !== "All Members" &&
           !!selectedMemberData?.lastWorkingDay &&
