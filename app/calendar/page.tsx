@@ -228,56 +228,183 @@ const holidayLeaves: Leave[] = useMemo(() => {
    *   Personal Leave: 14-Apr
    */
   const exportLeaves = useMemo(() => {
+    /*
+     * The on-screen holidayLeaves list is intentionally limited to the
+     * selected month. Export must not use that month-scoped list because
+     * the export is a full consolidated-year export.
+     *
+     * Build a separate all-year Company Holiday list for every member,
+     * applying the same organization/location, project-period and
+     * Remove/Add override rules used by the calendar.
+     */
+    const exportHolidayLeaves: Leave[] = [];
+
+    holidays.forEach(h => {
+      membersData.forEach((m: any) => {
+        if (
+          m.location !== h.location ||
+          m.organization !== h.organization
+        ) {
+          return;
+        }
+
+        if (
+          m.projectStartDate &&
+          h.date < m.projectStartDate
+        ) {
+          return;
+        }
+
+        if (
+          m.lastWorkingDay &&
+          h.date > m.lastWorkingDay
+        ) {
+          return;
+        }
+
+        const memberOverrides = memberHolidayOverrides.filter(
+          o => o.memberId === m.id
+        );
+
+        const removed = memberOverrides.some(
+          o =>
+            o.action === "Remove" &&
+            o.holidayDate === h.date &&
+            o.holidayName === h.name
+        );
+
+        if (removed) return;
+
+        exportHolidayLeaves.push({
+          id: `holiday-${h.id}-${m.name}`,
+          memberName: m.name,
+          leaveType: "Company Holiday",
+          ptoDays: 1,
+          startDate: h.date,
+          endDate: h.date,
+          status: "Confirmed",
+        });
+      });
+    });
+
+    // Add custom holidays for the full year, not just the selected month.
+    memberHolidayOverrides
+      .filter(o => o.action === "Add")
+      .forEach(o => {
+        const member = membersData.find(
+          (m: any) => m.id === o.memberId
+        );
+
+        if (!member) return;
+
+        if (
+          member.projectStartDate &&
+          o.holidayDate < member.projectStartDate
+        ) {
+          return;
+        }
+
+        if (
+          member.lastWorkingDay &&
+          o.holidayDate > member.lastWorkingDay
+        ) {
+          return;
+        }
+
+        exportHolidayLeaves.push({
+          id: `custom-holiday-${o.id}`,
+          memberName: member.name,
+          leaveType: "Company Holiday",
+          ptoDays: 1,
+          startDate: o.holidayDate,
+          endDate: o.holidayDate,
+          status: "Confirmed",
+        });
+      });
+
     const holidayDatesByMember = new Map<string, Set<string>>();
 
-    holidayLeaves.forEach(h => {
-      const existing = holidayDatesByMember.get(h.memberName) || new Set<string>();
+    exportHolidayLeaves.forEach(h => {
+      const existing =
+        holidayDatesByMember.get(h.memberName) ||
+        new Set<string>();
+
       existing.add(h.startDate);
       holidayDatesByMember.set(h.memberName, existing);
     });
 
     const result: Leave[] = [];
 
+    /*
+     * Apply Company Holiday precedence to Personal Leaves.
+     * A personal leave is split only for the exported representation.
+     * The stored leave record remains unchanged.
+     */
     leaves.forEach(l => {
       const memberHolidayDates =
-        holidayDatesByMember.get(l.memberName) || new Set<string>();
+        holidayDatesByMember.get(l.memberName) ||
+        new Set<string>();
 
       const start = parseDateOnly(l.startDate);
       const end = parseDateOnly(l.endDate);
 
       let segmentStart: Date | null = null;
 
+      const formatDate = (date: Date) =>
+        `${date.getFullYear()}-${String(
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
       const addSegment = (segmentEnd: Date) => {
         if (!segmentStart) return;
 
-        result.push({
-          ...l,
-          id:
-            segmentStart.getTime() === start.getTime() &&
-            segmentEnd.getTime() === end.getTime()
-              ? l.id
-              : `${l.id}-export-${segmentStart.getTime()}`,
-          startDate: `${segmentStart.getFullYear()}-${String(
-            segmentStart.getMonth() + 1
-          ).padStart(2, "0")}-${String(segmentStart.getDate()).padStart(2, "0")}`,
-          endDate: `${segmentEnd.getFullYear()}-${String(
-            segmentEnd.getMonth() + 1
-          ).padStart(2, "0")}-${String(segmentEnd.getDate()).padStart(2, "0")}`,
-        });
+        const segmentStartDate = formatDate(segmentStart);
+        const segmentEndDate = formatDate(segmentEnd);
+
+        // Count weekdays in the exported segment.
+        let ptoDays = 0;
+        const current = new Date(segmentStart);
+
+        while (current <= segmentEnd) {
+          const day = current.getDay();
+
+          if (day !== 0 && day !== 6) {
+            ptoDays++;
+          }
+
+          current.setDate(current.getDate() + 1);
+        }
+
+        if (ptoDays > 0) {
+          result.push({
+            ...l,
+            id:
+              segmentStartDate === l.startDate &&
+              segmentEndDate === l.endDate
+                ? l.id
+                : `${l.id}-export-${segmentStartDate}`,
+            startDate: segmentStartDate,
+            endDate: segmentEndDate,
+            ptoDays,
+          });
+        }
 
         segmentStart = null;
       };
 
-      const current = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const current = new Date(
+        start.getFullYear(),
+        start.getMonth(),
+        start.getDate()
+      );
 
       while (current <= end) {
         const dayOfWeek = current.getDay();
-        const isoDate = `${current.getFullYear()}-${String(
-          current.getMonth() + 1
-        ).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`;
-
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-        const isCompanyHoliday = memberHolidayDates.has(isoDate);
+        const isoDate = formatDate(current);
+        const isWeekend =
+          dayOfWeek === 0 || dayOfWeek === 6;
+        const isCompanyHoliday =
+          memberHolidayDates.has(isoDate);
 
         if (!isWeekend && isCompanyHoliday) {
           if (segmentStart) {
@@ -293,11 +420,12 @@ const holidayLeaves: Leave[] = useMemo(() => {
       }
 
       if (segmentStart) {
-        const segmentEnd = new Date(end);
-        // Do not include weekend-only trailing days in the exported segment.
+        let segmentEnd = new Date(end);
+
         while (
           segmentEnd >= segmentStart &&
-          (segmentEnd.getDay() === 0 || segmentEnd.getDay() === 6)
+          (segmentEnd.getDay() === 0 ||
+            segmentEnd.getDay() === 6)
         ) {
           segmentEnd.setDate(segmentEnd.getDate() - 1);
         }
@@ -308,11 +436,16 @@ const holidayLeaves: Leave[] = useMemo(() => {
       }
     });
 
-    // Add the Company Holiday records after the personal-leave segments.
-    result.push(...holidayLeaves);
+    // Company Holidays are added after Personal Leave segments.
+    result.push(...exportHolidayLeaves);
 
     return result;
-  }, [leaves, holidayLeaves]);
+  }, [
+    leaves,
+    holidays,
+    membersData,
+    memberHolidayOverrides,
+  ]);
 
   /* ---------- Filtered Leaves ---------- */
 
