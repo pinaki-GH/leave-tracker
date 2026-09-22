@@ -28,6 +28,7 @@ export default function Home() {
   const [companyHolidays, setCompanyHolidays] = useState<
     {
       id: string;
+      organization?: string;
       location: string;
       date: string;
       name: string;
@@ -38,6 +39,7 @@ export default function Home() {
     {
       id: string;
       name: string;
+      organization?: string;
       location?: string;
       projectStartDate?: string;
       lastWorkingDay?: string;
@@ -105,7 +107,8 @@ export default function Home() {
    * Company Holiday handling
    *
    * A Company Holiday takes precedence over personal leave on the
-   * same weekday. The holiday must match the member's location.
+   * same weekday. The holiday must match the member's organization
+   * and location.
    *
    * The original leave range remains one stored record. PTO Days are
    * reduced only by applicable weekday Company Holidays within that
@@ -114,11 +117,17 @@ export default function Home() {
   const getCompanyHolidayDatesForMember = (memberName: string) => {
     const member = members.find(m => m.name === memberName);
 
-    if (!member?.location) return new Set<string>();
+    if (!member?.location || !member.organization) {
+      return new Set<string>();
+    }
 
     return new Set(
       companyHolidays
-        .filter(h => h.location === member.location)
+        .filter(
+          h =>
+            h.location === member.location &&
+            h.organization === member.organization
+        )
         .map(h => h.date)
     );
   };
